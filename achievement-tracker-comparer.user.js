@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name        Achievement Tracker Comparer
 // @namespace   https://github.com/RudeySH/achievement-tracker-comparer
-// @version     0.2.0
+// @version     0.2.1
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Steam Hunters and Steam Community profiles.
 // @homepageURL https://github.com/RudeySH/achievement-tracker-comparer
@@ -155,7 +155,7 @@ class Steam extends Tracker {
 			const achievementShowcaseGame = g_rgAchievementShowcaseGamesWithAchievements.find(game => game.appid === appid);
 			const name = achievementShowcaseGame?.name ?? completionistShowcaseGame?.name;
 			const isPerfect = total !== undefined ? unlocked >= total : undefined;
-			const isCompleted = isPerfect ? isCompleted : undefined;
+			const isCompleted = isPerfect ? true : undefined;
 			const isCounted = completionistShowcaseGame !== undefined;
 			const isTrusted = achievementShowcaseGame !== undefined;
 
