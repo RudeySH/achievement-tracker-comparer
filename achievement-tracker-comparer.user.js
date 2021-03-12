@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name        Achievement Tracker Comparer
 // @namespace   https://github.com/RudeySH/achievement-tracker-comparer
-// @version     0.1.0
+// @version     0.2.0
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Steam Hunters and Steam Community profiles.
 // @homepageURL https://github.com/RudeySH/achievement-tracker-comparer
@@ -9,10 +9,27 @@
 // @match       https://steamcommunity.com/id/*
 // @match       https://steamcommunity.com/profiles/*
 // @grant       GM_xmlhttpRequest
+// @connect     astats.nl
 // @connect     steamhunters.com
 // ==/UserScript==
 
 'use strict';
+
+const domParser = new DOMParser();
+
+function getDocument(url) {
+	return new Promise((resolve, reject) => {
+		GM_xmlhttpRequest({
+			url,
+			onabort: reject,
+			onerror: reject,
+			ontimeout: reject,
+			onload: data => {
+				resolve(domParser.parseFromString(data.responseText, 'text/html'));
+			},
+		});
+	});
+}
 
 function getJSON(url) {
 	return new Promise((resolve, reject) => {
@@ -43,7 +60,35 @@ class AStats extends Tracker {
 	name = 'AStats';
 
 	async getStartedGames() {
-		return []; // TODO: scrape AStats
+		const document = await getDocument(`https://astats.astats.nl/astats/User_Games.php?SteamID64=${g_rgProfileData.steamid}&AchievementsOnly=1&Limit=0`);
+		const table = document.querySelector('table:not(.Pager)');
+		const startedGames = [];
+
+		for (const row of table.tBodies[0].rows) {
+			const validUnlocked = parseInt(row.cells[2].textContent);
+			const unlocked = validUnlocked + (parseInt(row.cells[3].textContent) || 0);
+
+			if (unlocked <= 0) {
+				continue;
+			}
+
+			const total = parseInt(row.cells[4].textContent);
+
+			if (total <= 0) {
+				continue;
+			}
+
+			const appid = parseInt(new URLSearchParams(row.querySelector('a[href*="AppID="]').href).get('AppID'));
+			const name = row.cells[1].textContent;
+			const validTotal = row.cells[4].textContent.split(' - ').map(x => parseInt(x)).reduce((a, b) => a - b);
+			const isPerfect = unlocked >= total;
+			const isCompleted = isPerfect || validUnlocked > 0 && validUnlocked >= validTotal;
+			const isCounted = isCompleted;
+
+			startedGames.push({ appid, name, unlocked, total, isPerfect, isCompleted, isCounted });
+		}
+
+		return startedGames;
 	}
 }
 
@@ -65,10 +110,11 @@ class SteamHunters extends Tracker {
 			appid: parseInt(appid),
 			name: license.app.name,
 			unlocked: license.achievementUnlockCount,
-			//total: license.app.achievementCount,
-			isPerfect: license.achievementUnlockCount === license.app.achievementCount,
+			total: license.app.achievementCount,
+			isPerfect: license.achievementUnlockCount >= license.app.achievementCount,
+			isCompleted: license.isCompleted,
+			isCounted: license.isCompleted && !license.isInvalidated,
 			isTrusted: !license.app.isRestricted,
-			isCounted: true,
 		}));
 	}
 }
@@ -89,7 +135,8 @@ class Steam extends Tracker {
 			if (appid === 247750) {
 				const name = 'The Stanley Parable Demo';
 				const unlocked = await this.getAchievementShowcaseCount(appid);
-				startedGames.push({ appid, name, unlocked, total: 1, isPerfect: unlocked === 1, isCounted: true, isTrusted: true });
+				const isPerfect = unlocked === 1;
+				startedGames.push({ appid, name, unlocked, total: 1, isPerfect, isCompleted: isPerfect, isCounted: isPerfect, isTrusted: true });
 				continue;
 			}
 
@@ -107,11 +154,12 @@ class Steam extends Tracker {
 
 			const achievementShowcaseGame = g_rgAchievementShowcaseGamesWithAchievements.find(game => game.appid === appid);
 			const name = achievementShowcaseGame?.name ?? completionistShowcaseGame?.name;
-			const isPerfect = total !== undefined ? total === unlocked : undefined;
-			const isTrusted = achievementShowcaseGame !== undefined;
+			const isPerfect = total !== undefined ? unlocked >= total : undefined;
+			const isCompleted = isPerfect ? isCompleted : undefined;
 			const isCounted = completionistShowcaseGame !== undefined;
+			const isTrusted = achievementShowcaseGame !== undefined;
 
-			startedGames.push({ appid, name, unlocked, total, isPerfect, isTrusted, isCounted });
+			startedGames.push({ appid, name, unlocked, total, isPerfect, isCompleted, isCounted, isTrusted });
 		}
 
 		return startedGames;
@@ -290,10 +338,23 @@ async function findDifferences() {
 						messages.push(`+${game.source.unlocked - game.target.unlocked} unlocked on ${source.tracker.name}`);
 					} else if (game.target.unlocked > game.source.unlocked) {
 						messages.push(`+${game.target.unlocked - game.source.unlocked} unlocked on ${target.tracker.name}`);
+					} else if (game.source.isPerfect === true && game.target.isPerfect === false) {
+						messages.push(`perfect on ${source.tracker.name} but not on ${target.tracker.name}`);
+					} else if (game.target.isPerfect === true && game.source.isPerfect === false) {
+						messages.push(`perfect on ${target.tracker.name} but not on ${source.tracker.name}`);
+					} else if (game.source.isCompleted === true && game.target.isCompleted === false) {
+						messages.push(`completed on ${source.tracker.name} but not on ${target.tracker.name}`);
+					} else if (game.target.isCompleted === true && game.source.isCompleted === false) {
+						messages.push(`completed on ${target.tracker.name} but not on ${source.tracker.name}`);
+					} else if (game.source.isCounted === true && game.target.isCounted === false) {
+						messages.push(`counts on ${source.tracker.name} but not on ${target.tracker.name}`);
+					} else if (game.target.isCounted === true && game.source.isCounted === false) {
+						messages.push(`counts on ${target.tracker.name} but not on ${source.tracker.name}`);
 					}
-					if (game.source.isTrusted && !game.target.isTrusted) {
+
+					if (game.source.isTrusted === true && game.target.isTrusted === false) {
 						messages.push(`trusted on ${source.tracker.name} but not on ${target.tracker.name}`);
-					} else if (game.target.isTrusted && !game.source.isTrusted) {
+					} else if (game.target.isTrusted === true && game.source.isTrusted === false) {
 						messages.push(`trusted on ${target.tracker.name} but not on ${source.tracker.name}`);
 					}
 				}
@@ -307,6 +368,8 @@ async function findDifferences() {
 			if (differences.length !== 0) {
 				console.log(`Differences between ${source.tracker.name} and ${target.tracker.name}:`);
 				console.table(differences);
+			} else {
+				console.log(`No differences between ${source.tracker.name} and ${target.tracker.name}.`)
 			}
 		}
 	}
@@ -346,7 +409,7 @@ window.addEventListener('load', () => {
 				</div>
 				<div>
 					<label>
-						<input name="profile" value="astats" type="checkbox" disabled /> AStats
+						<input name="profile" value="astats" type="checkbox" disabled checked /> AStats
 					</label>
 				</div>
 				<div>
