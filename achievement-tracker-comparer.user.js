@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name        Achievement Tracker Comparer
 // @namespace   https://github.com/RudeySH/achievement-tracker-comparer
-// @version     0.2.1
+// @version     0.3.0
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Steam Hunters and Steam Community profiles.
 // @homepageURL https://github.com/RudeySH/achievement-tracker-comparer
@@ -90,6 +90,10 @@ class AStats extends Tracker {
 
 		return startedGames;
 	}
+
+	getAppURL(appid) {
+		return `https://astats.astats.nl/astats/Steam_Game_Info.php?AppID=${appid}&SteamID64=${g_rgProfileData.steamid}`;
+	}
 }
 
 class Completionist extends Tracker {
@@ -97,6 +101,10 @@ class Completionist extends Tracker {
 
 	async getStartedGames() {
 		return []; // TODO: scrape completionist.me
+	}
+
+	getAppURL(appid) {
+		return `https://completionist.me/steam/profile/${g_rgProfileData.steamid}/app/${appid}`;
 	}
 }
 
@@ -116,6 +124,10 @@ class SteamHunters extends Tracker {
 			isCounted: license.isCompleted && !license.isInvalidated,
 			isTrusted: !license.app.isRestricted,
 		}));
+	}
+
+	getAppURL(appid) {
+		return `https://steamhunters.com/profiles/${g_rgProfileData.steamid}/stats/${appid}`;
 	}
 }
 
@@ -252,6 +264,10 @@ class Steam extends Tracker {
 
 		return messages;
 	}
+
+	getAppURL(appid) {
+		return `https://steamcommunity.com/profiles/${g_rgProfileData.steamid}/stats/${appid}?tab=achievements`;
+	}
 }
 
 const trackers = [new AStats(), new Completionist(), new SteamHunters()];
@@ -360,19 +376,49 @@ async function findDifferences() {
 				}
 
 				if (messages.length !== 0) {
-					differences.push({ name: game.name, messages: messages.join(', ') });
+					differences.push({
+						appid: game.appid,
+						name: game.name,
+						messages: messages.join('; '),
+						sourceURL: source.tracker.getAppURL(game.appid),
+						targetURL: target.tracker.getAppURL(game.appid),
+					});
 				}
 			}
 
 			// TODO: display differences on screen instead of logging to console
-			if (differences.length !== 0) {
-				console.log(`Differences between ${source.tracker.name} and ${target.tracker.name}:`);
-				console.table(differences);
-			} else {
-				console.log(`No differences between ${source.tracker.name} and ${target.tracker.name}.`)
+
+			if (differences.length === 0) {
+				console.log(`No differences between ${source.tracker.name} and ${target.tracker.name}.`);
+				return;
+			}
+
+			differences.sort((a, b) => a.appid - b.appid);
+
+			console.log(`Differences between ${source.tracker.name} and ${target.tracker.name}:`);
+			console.table(differences);
+
+			const csv = `App ID,Name,Differences,${source.tracker.name} URL,${target.tracker.name} URL\n`
+				+ differences.map(d => `${d.appid},${escapeCSV(d.name)},${escapeCSV(d.messages)},${d.sourceURL},${d.targetURL}`).join('\n');
+
+			console.log(csv);
+
+			if (document.hasFocus()) {
+				await navigator.clipboard.writeText(csv);
+				console.log('Copied to clipboard!');
 			}
 		}
 	}
+}
+
+function escapeCSV(string) {
+	if (string.indexOf('"') !== -1) {
+		return `"${string.replace(/"/g, '""')}"`;
+	} else if (string.indexOf(',') !== -1) {
+		return `"${string}"`;
+	}
+
+	return string;
 }
 
 window.addEventListener('load', () => {
@@ -456,6 +502,14 @@ window.addEventListener('load', () => {
 	if (!isOwnProfile || !isEditProfile) {
 		const checkbox = node.querySelector('input[name="profile"][value="steam"]');
 		checkbox.checked = false;
+	}
+
+	if (container.classList.contains('profileeditshell_Navigation_33Kl1')) {
+		node.firstElementChild.classList.add('profileeditshell_ProfileEditStoreLink_3iaJs');
+
+		button.className = 'profileeditshell_ExternalLink_1xCAN';
+		button.style.backgroundColor = 'transparent';
+		button.style.cursor = 'pointer';
 	}
 
 	container.appendChild(node);
