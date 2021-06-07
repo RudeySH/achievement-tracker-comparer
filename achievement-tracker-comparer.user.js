@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name        Achievement Tracker Comparer
 // @namespace   https://github.com/RudeySH/achievement-tracker-comparer
-// @version     0.3.0
+// @version     0.3.1
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Steam Hunters and Steam Community profiles.
 // @homepageURL https://github.com/RudeySH/achievement-tracker-comparer
@@ -11,6 +11,7 @@
 // @grant       GM_xmlhttpRequest
 // @connect     astats.nl
 // @connect     steamhunters.com
+// @require     https://cdnjs.cloudflare.com/ajax/libs/es6-promise-pool/2.5.0/es6-promise-pool.min.js
 // ==/UserScript==
 
 'use strict';
@@ -142,39 +143,48 @@ class Steam extends Tracker {
 		])];
 
 		const startedGames = [];
+		const iterator = this.getStartedGamesIterator(appids, startedGames);
+		const pool = new PromisePool(iterator, 100);
 
-		for (const appid of appids) {
-			if (appid === 247750) {
-				const name = 'The Stanley Parable Demo';
-				const unlocked = await this.getAchievementShowcaseCount(appid);
-				const isPerfect = unlocked === 1;
-				startedGames.push({ appid, name, unlocked, total: 1, isPerfect, isCompleted: isPerfect, isCounted: isPerfect, isTrusted: true });
-				continue;
-			}
-
-			const completionistShowcaseGame = g_rgAchievementsCompletionshipShowcasePerfectGames.find(game => game.appid === appid);
-			let { unlocked, total } = await this.getFavoriteGameShowcaseCounts(appid);
-			total ??= completionistShowcaseGame?.num_achievements;
-
-			if (unlocked === undefined) {
-				unlocked = await this.getAchievementShowcaseCount(appid);
-
-				if (unlocked === 9999 && completionistShowcaseGame !== undefined) {
-					unlocked = completionistShowcaseGame.num_achievements;
-				}
-			}
-
-			const achievementShowcaseGame = g_rgAchievementShowcaseGamesWithAchievements.find(game => game.appid === appid);
-			const name = achievementShowcaseGame?.name ?? completionistShowcaseGame?.name;
-			const isPerfect = total !== undefined ? unlocked >= total : undefined;
-			const isCompleted = isPerfect ? true : undefined;
-			const isCounted = completionistShowcaseGame !== undefined;
-			const isTrusted = achievementShowcaseGame !== undefined;
-
-			startedGames.push({ appid, name, unlocked, total, isPerfect, isCompleted, isCounted, isTrusted });
-		}
+		await pool.start();
 
 		return startedGames;
+	}
+
+	* getStartedGamesIterator(appids, startedGames) {
+		for (const appid of appids) {
+			yield this.getGame(appid).then(game => startedGames.push(game));
+		}
+	}
+
+	async getGame(appid) {
+		if (appid === 247750) {
+			const name = 'The Stanley Parable Demo';
+			const unlocked = await this.getAchievementShowcaseCount(appid);
+			const isPerfect = unlocked === 1;
+			return { appid, name, unlocked, total: 1, isPerfect, isCompleted: isPerfect, isCounted: isPerfect, isTrusted: true };
+		}
+
+		const completionistShowcaseGame = g_rgAchievementsCompletionshipShowcasePerfectGames.find(game => game.appid === appid);
+		let { unlocked, total } = await this.getFavoriteGameShowcaseCounts(appid);
+		total ??= completionistShowcaseGame?.num_achievements;
+
+		if (unlocked === undefined) {
+			unlocked = await this.getAchievementShowcaseCount(appid);
+
+			if (unlocked === 9999 && completionistShowcaseGame !== undefined) {
+				unlocked = completionistShowcaseGame.num_achievements;
+			}
+		}
+
+		const achievementShowcaseGame = g_rgAchievementShowcaseGamesWithAchievements.find(game => game.appid === appid);
+		const name = achievementShowcaseGame?.name ?? completionistShowcaseGame?.name;
+		const isPerfect = total !== undefined ? unlocked >= total : undefined;
+		const isCompleted = isPerfect ? true : undefined;
+		const isCounted = completionistShowcaseGame !== undefined;
+		const isTrusted = achievementShowcaseGame !== undefined;
+
+		return { appid, name, unlocked, total, isPerfect, isCompleted, isCounted, isTrusted };
 	}
 
 	async getFavoriteGameShowcaseCounts(appid) {
