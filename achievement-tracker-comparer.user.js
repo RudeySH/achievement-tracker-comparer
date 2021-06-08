@@ -1,26 +1,34 @@
 ﻿// ==UserScript==
 // @name        Achievement Tracker Comparer
 // @namespace   https://github.com/RudeySH/achievement-tracker-comparer
-// @version     0.3.1
+// @version     0.4.0
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Steam Hunters and Steam Community profiles.
 // @homepageURL https://github.com/RudeySH/achievement-tracker-comparer
 // @supportURL  https://github.com/RudeySH/achievement-tracker-comparer/issues
 // @match       https://steamcommunity.com/id/*
 // @match       https://steamcommunity.com/profiles/*
-// @grant       GM_xmlhttpRequest
+// @grant       GM.xmlHttpRequest
 // @connect     astats.nl
+// @connect     completionist.me
 // @connect     steamhunters.com
 // @require     https://cdnjs.cloudflare.com/ajax/libs/es6-promise-pool/2.5.0/es6-promise-pool.min.js
 // ==/UserScript==
 
 'use strict';
 
+// bypass GreaseMonkey's security model
+const g_rgProfileData = unsafeWindow.g_rgProfileData;
+const g_sessionID = unsafeWindow.g_sessionID;
+const g_steamID = unsafeWindow.g_steamID;
+
 const domParser = new DOMParser();
 
 function getDocument(url) {
 	return new Promise((resolve, reject) => {
-		GM_xmlhttpRequest({
+		GM.xmlHttpRequest({
+			method: 'GET',
+			overrideMimeType: 'text/html',
 			url,
 			onabort: reject,
 			onerror: reject,
@@ -34,14 +42,15 @@ function getDocument(url) {
 
 function getJSON(url) {
 	return new Promise((resolve, reject) => {
-		GM_xmlhttpRequest({
+		GM.xmlHttpRequest({
+			method: 'GET',
+			overrideMimeType: 'application/json',
 			url,
-			responseType: 'json',
 			onabort: reject,
 			onerror: reject,
 			ontimeout: reject,
 			onload: data => {
-				resolve(data.response);
+				resolve(JSON.parse(data.responseText));
 			},
 		});
 	});
@@ -58,14 +67,23 @@ class Tracker {
 }
 
 class AStats extends Tracker {
+	domain = 'astats.nl';
 	name = 'AStats';
 
-	async getStartedGames() {
-		const document = await getDocument(`https://astats.astats.nl/astats/User_Games.php?SteamID64=${g_rgProfileData.steamid}&AchievementsOnly=1&Limit=0`);
-		const table = document.querySelector('table:not(.Pager)');
-		const startedGames = [];
+	getProfileURL() {
+		return `https://astats.astats.nl/astats/User_Info.php?steamID64=${g_rgProfileData.steamid}&utm_campaign=userscript`;
+	}
 
-		for (const row of table.tBodies[0].rows) {
+	getGameURL(appid) {
+		return `https://astats.astats.nl/astats/Steam_Game_Info.php?AppID=${appid}&SteamID64=${g_rgProfileData.steamid}&utm_campaign=userscript`;
+	}
+
+	async getStartedGames() {
+		const startedGames = [];
+		const document = await getDocument(`https://astats.astats.nl/astats/User_Games.php?SteamID64=${g_rgProfileData.steamid}&AchievementsOnly=1&Limit=0&utm_campaign=userscript`);
+		const rows = document.querySelectorAll('table:not(.Pager) tbody tr');
+
+		for (const row of rows) {
 			const validUnlocked = parseInt(row.cells[2].textContent);
 			const unlocked = validUnlocked + (parseInt(row.cells[3].textContent) || 0);
 
@@ -91,29 +109,77 @@ class AStats extends Tracker {
 
 		return startedGames;
 	}
-
-	getAppURL(appid) {
-		return `https://astats.astats.nl/astats/Steam_Game_Info.php?AppID=${appid}&SteamID64=${g_rgProfileData.steamid}`;
-	}
 }
 
 class Completionist extends Tracker {
+	domain = 'completionist.me';
 	name = 'completionist.me';
 
-	async getStartedGames() {
-		return []; // TODO: scrape completionist.me
+	getProfileURL() {
+		return `https://completionist.me/steam/profile/${g_rgProfileData.steamid}?utm_campaign=userscript`;
 	}
 
-	getAppURL(appid) {
-		return `https://completionist.me/steam/profile/${g_rgProfileData.steamid}/app/${appid}`;
+	getGameURL(appid) {
+		return `https://completionist.me/steam/profile/${g_rgProfileData.steamid}/app/${appid}?utm_campaign=userscript`;
+	}
+
+	async getStartedGames() {
+		const startedGames = [];
+		let page = 1;
+		let pageCount = 1;
+
+		do {
+			const document = await getDocument(`https://completionist.me/steam/profile/${g_rgProfileData.steamid}/apps?display=flat&sort=started&order=asc&completion=started&page=${page}&utm_campaign=userscript`);
+			const rows = document.querySelectorAll('.games-list tbody tr');
+
+			if (rows.length === 0) {
+				break;
+			}
+
+			for (const row of rows) {
+				const nameCell = row.cells[1];
+				const anchor = nameCell.querySelector('a');
+				const counts = row.cells[4].textContent.split('/').map(s => parseInt(s.trim().replace(/,/g, '')));
+				const unlocked = counts[0];
+				const total = counts[1] ?? unlocked;
+				const isPerfect = unlocked >= total;
+
+				startedGames.push({
+					appid: parseInt(anchor.href.substr(anchor.href.lastIndexOf('/') + 1)),
+					name: nameCell.textContent.trim(),
+					unlocked,
+					total,
+					isPerfect,
+					isCompleted: isPerfect ? true : undefined,
+					isCounted: isPerfect,
+					isTrusted: nameCell.querySelector('.fa-spinner') === null,
+				});
+
+				const pagination = document.querySelector('.pagination a:last-of-type');
+				if (pagination !== null) {
+					pageCount = parseInt(new URLSearchParams(pagination.href).get('page'));
+				}
+			}
+		} while (page++ < pageCount)
+
+		return startedGames;
 	}
 }
 
 class SteamHunters extends Tracker {
+	domain = 'steamhunters.com';
 	name = 'Steam Hunters';
 
+	getProfileURL() {
+		return `https://steamhunters.com/profiles/${g_rgProfileData.steamid}?utm_campaign=userscript`;
+	}
+
+	getGameURL(appid) {
+		return `https://steamhunters.com/profiles/${g_rgProfileData.steamid}/stats/${appid}?utm_campaign=userscript`;
+	}
+
 	async getStartedGames() {
-		const licenses = await getJSON(`https://steamhunters.com/api/steam-users/${g_rgProfileData.steamid}/licenses?state=started`);
+		const licenses = await getJSON(`https://steamhunters.com/api/steam-users/${g_rgProfileData.steamid}/licenses?state=started&utm_campaign=userscript`);
 
 		return Object.entries(licenses).map(([appid, license]) => ({
 			appid: parseInt(appid),
@@ -126,38 +192,47 @@ class SteamHunters extends Tracker {
 			isTrusted: !license.app.isRestricted,
 		}));
 	}
-
-	getAppURL(appid) {
-		return `https://steamhunters.com/profiles/${g_rgProfileData.steamid}/stats/${appid}`;
-	}
 }
 
 class Steam extends Tracker {
+	domain = 'steamcommunity.com';
 	name = 'Steam';
 
+	getProfileURL() {
+		return g_rgProfileData.url;
+	}
+
+	getGameURL(appid) {
+		return `https://steamcommunity.com/profiles/${g_rgProfileData.steamid}/stats/${appid}?tab=achievements`;
+	}
+
 	async getStartedGames(appids) {
+		const document = await getDocument(`${g_rgProfileData.url}edit/showcases`);
+		const achievementShowcaseGames = JSON.parse(document.getElementById('showcase_preview_17').innerHTML.match(/g_rgAchievementShowcaseGamesWithAchievements = (.*);/)[1]);
+		const completionistShowcaseGames = JSON.parse(document.getElementById('showcase_preview_23').innerHTML.match(/g_rgAchievementsCompletionshipShowcasePerfectGames = (.*);/)[1]);
+
 		appids = [...new Set([
 			...appids,
-			...g_rgAchievementShowcaseGamesWithAchievements.map(game => game.appid),
-			...g_rgAchievementsCompletionshipShowcasePerfectGames.map(game => game.appid),
+			...achievementShowcaseGames.map(game => game.appid),
+			...completionistShowcaseGames.map(game => game.appid),
 		])];
 
 		const startedGames = [];
-		const iterator = this.getStartedGamesIterator(appids, startedGames);
-		const pool = new PromisePool(iterator, 100);
+		const iterator = this.getStartedGamesIterator(appids, achievementShowcaseGames, completionistShowcaseGames, startedGames);
+		const pool = new PromisePool(iterator, 6);
 
 		await pool.start();
 
 		return startedGames;
 	}
 
-	* getStartedGamesIterator(appids, startedGames) {
+	* getStartedGamesIterator(appids, achievementShowcaseGames, completionistShowcaseGames, startedGames) {
 		for (const appid of appids) {
-			yield this.getGame(appid).then(game => startedGames.push(game));
+			yield this.getGame(appid, achievementShowcaseGames, completionistShowcaseGames).then(game => startedGames.push(game));
 		}
 	}
 
-	async getGame(appid) {
+	async getGame(appid, achievementShowcaseGames, completionistShowcaseGames) {
 		if (appid === 247750) {
 			const name = 'The Stanley Parable Demo';
 			const unlocked = await this.getAchievementShowcaseCount(appid);
@@ -165,7 +240,7 @@ class Steam extends Tracker {
 			return { appid, name, unlocked, total: 1, isPerfect, isCompleted: isPerfect, isCounted: isPerfect, isTrusted: true };
 		}
 
-		const completionistShowcaseGame = g_rgAchievementsCompletionshipShowcasePerfectGames.find(game => game.appid === appid);
+		const completionistShowcaseGame = completionistShowcaseGames.find(game => game.appid === appid);
 		let { unlocked, total } = await this.getFavoriteGameShowcaseCounts(appid);
 		total ??= completionistShowcaseGame?.num_achievements;
 
@@ -177,7 +252,7 @@ class Steam extends Tracker {
 			}
 		}
 
-		const achievementShowcaseGame = g_rgAchievementShowcaseGamesWithAchievements.find(game => game.appid === appid);
+		const achievementShowcaseGame = achievementShowcaseGames.find(game => game.appid === appid);
 		const name = achievementShowcaseGame?.name ?? completionistShowcaseGame?.name;
 		const isPerfect = total !== undefined ? unlocked >= total : undefined;
 		const isCompleted = isPerfect ? true : undefined;
@@ -274,20 +349,17 @@ class Steam extends Tracker {
 
 		return messages;
 	}
-
-	getAppURL(appid) {
-		return `https://steamcommunity.com/profiles/${g_rgProfileData.steamid}/stats/${appid}?tab=achievements`;
-	}
 }
 
 const trackers = [new AStats(), new Completionist(), new SteamHunters()];
 const isOwnProfile = g_rgProfileData.steamid === g_steamID;
-const isEditProfile = unsafeWindow.g_rgAchievementsCompletionshipShowcasePerfectGames !== undefined;
 
-async function findDifferences() {
-	const results = await Promise.all(trackers.map(async tracker => ({ tracker, games: await tracker.getStartedGames() })));
+async function findDifferences(trackerNames) {
+	const results = await Promise.all(trackers
+		.filter(tracker => trackerNames.includes(tracker.name))
+		.map(async tracker => ({ tracker, games: await tracker.getStartedGames() })));
 
-	if (isOwnProfile && isEditProfile) {
+	if (trackerNames.includes('Steam')) {
 		const appids = new Set();
 		results.forEach(result => result.games.forEach(game => appids.add(game.appid)));
 
@@ -390,8 +462,8 @@ async function findDifferences() {
 						appid: game.appid,
 						name: game.name,
 						messages: messages.join('; '),
-						sourceURL: source.tracker.getAppURL(game.appid),
-						targetURL: target.tracker.getAppURL(game.appid),
+						sourceURL: source.tracker.getGameURL(game.appid),
+						targetURL: target.tracker.getGameURL(game.appid),
 					});
 				}
 			}
@@ -409,13 +481,17 @@ async function findDifferences() {
 			console.table(differences);
 
 			const csv = `App ID,Name,Differences,${source.tracker.name} URL,${target.tracker.name} URL\n`
-				+ differences.map(d => `${d.appid},${escapeCSV(d.name)},${escapeCSV(d.messages)},${d.sourceURL},${d.targetURL}`).join('\n');
+				+ differences.map(d => `${d.appid},${escapeCSV(d.name)},${d.messages},${d.sourceURL},${d.targetURL}`).join('\n');
 
 			console.log(csv);
 
 			if (document.hasFocus()) {
-				await navigator.clipboard.writeText(csv);
-				console.log('Copied to clipboard!');
+				try {
+					await navigator.clipboard.writeText(csv);
+					console.log('Copied to clipboard!');
+				} catch (error) {
+					console.error(error);
+				}
 			}
 		}
 	}
@@ -432,7 +508,7 @@ function escapeCSV(string) {
 }
 
 window.addEventListener('load', () => {
-	const container = document.querySelector('.profile_rightcol, .profileeditshell_Navigation_33Kl1');
+	const container = document.querySelector('.profile_rightcol');
 
 	if (container === null) {
 		return;
@@ -446,81 +522,81 @@ window.addEventListener('load', () => {
 
 		.atc button:disabled {
 			pointer-events: none;
+		}
+
+		.atc input[type="checkbox"] {
+			vertical-align: top;
+		}
+
+		.atc .whiteLink {
+			float: right;
 		}`;
 
 	document.head.appendChild(style);
 
 	const template = document.createElement('template');
 	template.innerHTML = `
-		<div class="atc">
+		<form class="atc">
 			<div class="profile_item_links">
 				<div class="profile_count_link ellipsis">
 					<a>
-						<span class="count_link_label">Achievements</span>
-						&nbsp;
-						<span class="profile_count_link_total">
-							${document.querySelector('.achievement_showcase .value')?.textContent ?? ''}
-						</span>
+						<span class="count_link_label">Trackers</span>&nbsp;
+						<span class="profile_count_link_total">${trackers.length}</span>
 					</a>
 				</div>
-				<div>
+				${trackers.map(tracker =>
+					`<div>
+						<label>
+							<input type="checkbox" name="trackerName" value="${tracker.name}" />
+							${tracker.name}
+						</label>
+						<a class="whiteLink" target="_blank" href="${tracker.getProfileURL()}">${tracker.domain}</a>
+					</div>`).join('')}
+				<p ${isOwnProfile ? '' : 'hidden'}>
 					<label>
-						<input name="profile" value="astats" type="checkbox" disabled checked /> AStats
+						<input type="checkbox" name="trackerName" value="Steam" />
+						Steam profile showcases (slow)
 					</label>
-				</div>
-				<div>
-					<label>
-						<input name="profile" value="completionist" type="checkbox" disabled /> completionist.me
-					</label>
-				</div>
-				<div>
-					<label>
-						<input name="profile" value="steam-hunters" type="checkbox" disabled checked /> Steam Hunters
-					</label>
-				</div>
-				<div>
-					<label>
-						<input name="profile" value="steam" type="checkbox" disabled checked /> Steam
-					</label>
-				</div>
-				<br />
-				<button type="button" class="btn_profile_action btn_medium" id="atc_btn">
-					<span>Find Differences</span>
-				</button>
+				</p>
+				<p>
+					<button type="button" class="btn_profile_action btn_medium" id="atc_btn" disabled>
+						<span>Find Differences</span>
+					</button>
+					<span id="atc_counter">0</span>
+					selected
+				</p>
 			</div>
-		</div>`;
+		</form>`;
 
-	const node = document.importNode(template.content, true);
+	const form = document.importNode(template.content, true).firstElementChild;
 
-	const button = node.querySelector('#atc_btn');
-	const span = button.querySelector('span');
+	const button = form.querySelector('#atc_btn');
+	const buttonSpan = button.querySelector('span');
+	const counter = form.querySelector('#atc_counter');
+
+	form.addEventListener('change', () => {
+		const formData = new FormData(form);
+		const trackerNames = formData.getAll('trackerName');
+		button.disabled = trackerNames.length < 2;
+		counter.textContent = trackerNames.length;
+	});
 
 	button.addEventListener('click', async () => {
 		button.disabled = true;
-		span.textContent = 'Loading...';
+		buttonSpan.textContent = 'Loading...';
+
+		const formData = new FormData(form);
+		const trackerNames = formData.getAll('trackerName');
 
 		try {
-			await findDifferences();
+			await findDifferences(trackerNames);
 		} catch (reason) {
 			console.error(reason);
 		}
 
-		span.textContent = 'Find Differences';
+		buttonSpan.textContent = 'Find Differences';
 		button.disabled = false;
 	});
 
-	if (!isOwnProfile || !isEditProfile) {
-		const checkbox = node.querySelector('input[name="profile"][value="steam"]');
-		checkbox.checked = false;
-	}
-
-	if (container.classList.contains('profileeditshell_Navigation_33Kl1')) {
-		node.firstElementChild.classList.add('profileeditshell_ProfileEditStoreLink_3iaJs');
-
-		button.className = 'profileeditshell_ExternalLink_1xCAN';
-		button.style.backgroundColor = 'transparent';
-		button.style.cursor = 'pointer';
-	}
-
-	container.appendChild(node);
+	container.appendChild(form);
 });
