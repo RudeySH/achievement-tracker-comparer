@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name        Achievement Tracker Comparer
 // @namespace   https://github.com/RudeySH/achievement-tracker-comparer
-// @version     0.4.0
+// @version     0.5.0
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Steam Hunters and Steam Community profiles.
 // @homepageURL https://github.com/RudeySH/achievement-tracker-comparer
@@ -125,44 +125,52 @@ class Completionist extends Tracker {
 
 	async getStartedGames() {
 		const startedGames = [];
-		let page = 1;
-		let pageCount = 1;
 
-		do {
-			const document = await getDocument(`https://completionist.me/steam/profile/${g_rgProfileData.steamid}/apps?display=flat&sort=started&order=asc&completion=started&page=${page}&utm_campaign=userscript`);
-			const rows = document.querySelectorAll('.games-list tbody tr');
+		const url = `https://completionist.me/steam/profile/${g_rgProfileData.steamid}/apps?display=flat&sort=started&order=asc&completion=started&utm_campaign=userscript`;
+		const document = await this.addStartedGames(startedGames, url);
+		const pagination = document.querySelector('.pagination a:last-of-type');
 
-			if (rows.length === 0) {
-				break;
-			}
-
-			for (const row of rows) {
-				const nameCell = row.cells[1];
-				const anchor = nameCell.querySelector('a');
-				const counts = row.cells[4].textContent.split('/').map(s => parseInt(s.trim().replace(/,/g, '')));
-				const unlocked = counts[0];
-				const total = counts[1] ?? unlocked;
-				const isPerfect = unlocked >= total;
-
-				startedGames.push({
-					appid: parseInt(anchor.href.substr(anchor.href.lastIndexOf('/') + 1)),
-					name: nameCell.textContent.trim(),
-					unlocked,
-					total,
-					isPerfect,
-					isCompleted: isPerfect ? true : undefined,
-					isCounted: isPerfect,
-					isTrusted: nameCell.querySelector('.fa-spinner') === null,
-				});
-
-				const pagination = document.querySelector('.pagination a:last-of-type');
-				if (pagination !== null) {
-					pageCount = parseInt(new URLSearchParams(pagination.href).get('page'));
-				}
-			}
-		} while (page++ < pageCount)
+		if (pagination !== null) {
+			const pageCount = parseInt(new URLSearchParams(pagination.href).get('page'));
+			const iterator = this.getStartedGamesIterator(startedGames, url, pageCount);
+			const pool = new PromisePool(iterator, 6);	
+			await pool.start();
+		}
 
 		return startedGames;
+	}
+
+	* getStartedGamesIterator(startedGames, url, pageCount) {
+		for (var page = 2; page <= pageCount; page++) {
+			yield this.addStartedGames(startedGames, `${url}&page=${page}`);
+		}
+	}
+
+	async addStartedGames(startedGames, url) {
+		const document = await getDocument(url);
+		const rows = document.querySelectorAll('.games-list tbody tr');
+
+		for (const row of rows) {
+			const nameCell = row.cells[1];
+			const anchor = nameCell.querySelector('a');
+			const counts = row.cells[4].textContent.split('/').map(s => parseInt(s.trim().replace(/,/g, '')));
+			const unlocked = counts[0];
+			const total = counts[1] ?? unlocked;
+			const isPerfect = unlocked >= total;
+
+			startedGames.push({
+				appid: parseInt(anchor.href.substr(anchor.href.lastIndexOf('/') + 1)),
+				name: nameCell.textContent.trim(),
+				unlocked,
+				total,
+				isPerfect,
+				isCompleted: isPerfect ? true : undefined,
+				isCounted: isPerfect,
+				isTrusted: nameCell.querySelector('.fa-spinner') === null,
+			});
+		}
+
+		return document;
 	}
 }
 
@@ -354,8 +362,10 @@ class Steam extends Tracker {
 const trackers = [new AStats(), new Completionist(), new SteamHunters()];
 const isOwnProfile = g_rgProfileData.steamid === g_steamID;
 
-async function findDifferences(trackerNames) {
-	const results = await Promise.all(trackers
+async function findDifferences(trackerNames, output) {
+	output.innerHTML = '';
+
+	let results = await Promise.all(trackers
 		.filter(tracker => trackerNames.includes(tracker.name))
 		.map(async tracker => ({ tracker, games: await tracker.getStartedGames() })));
 
@@ -367,12 +377,32 @@ async function findDifferences(trackerNames) {
 		results.push({ tracker, games: await tracker.getStartedGames([...appids]) });
 	}
 
+	results = results.filter(result => result.games.length !== 0);
+
+	if (results.length < 2) {
+		return;
+	}
+
+	output.innerHTML = `
+		<div class="profile_comment_area">
+			${results.filter(result => result.tracker.name !== 'Steam').map(result => {
+				const appids = [...new Set(results
+					.filter(r => r.tracker !== result)
+					.flatMap(r => r.games.map(g => g.appid))
+					.filter(appid => !result.games.some(g => g.appid === appid)))];
+				return `
+					<p>
+						Missing achievements on ${result.tracker.name}:
+					</p>
+					<div class="commentthread_entry_quotebox">
+						<textarea class="commentthread_textarea" readonly>${appids}</textarea>
+					</div>
+				`;
+			}).join('')}
+		</div>`;
+
 	for (let sourceIndex = 0; sourceIndex < results.length; sourceIndex++) {
 		const source = results[sourceIndex];
-
-		if (source.games.length === 0) {
-			continue; // no games to compare
-		}
 
 		const validationErrors = [];
 
@@ -392,10 +422,6 @@ async function findDifferences(trackerNames) {
 
 		for (let targetIndex = sourceIndex + 1; targetIndex < results.length; targetIndex++) {
 			const target = results[targetIndex];
-
-			if (target.games.length === 0) {
-				continue; // no games to compare
-			}
 
 			// join games from both trackers into map
 			const gamesMap = new Map();
@@ -528,6 +554,15 @@ window.addEventListener('load', () => {
 			vertical-align: top;
 		}
 
+		.atc textarea {
+			font-size: inherit;
+			overflow-y: scroll;
+		}
+
+		.atc .profile_comment_area {
+			margin-top: 0;
+		}
+
 		.atc .whiteLink {
 			float: right;
 		}`;
@@ -565,6 +600,7 @@ window.addEventListener('load', () => {
 					<span id="atc_counter">0</span>
 					selected
 				</p>
+				<div id="atc_output"></div>
 			</div>
 		</form>`;
 
@@ -573,6 +609,7 @@ window.addEventListener('load', () => {
 	const button = form.querySelector('#atc_btn');
 	const buttonSpan = button.querySelector('span');
 	const counter = form.querySelector('#atc_counter');
+	const output = form.querySelector('#atc_output');
 
 	form.addEventListener('change', () => {
 		const formData = new FormData(form);
@@ -589,7 +626,7 @@ window.addEventListener('load', () => {
 		const trackerNames = formData.getAll('trackerName');
 
 		try {
-			await findDifferences(trackerNames);
+			await findDifferences(trackerNames, output);
 		} catch (reason) {
 			console.error(reason);
 		}
