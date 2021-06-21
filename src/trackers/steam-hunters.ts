@@ -1,0 +1,65 @@
+import he from 'he';
+import { Game } from '../interfaces/game';
+import { RecoverGame } from '../interfaces/recover-game';
+import { getJSON } from '../utils/utils';
+import { Tracker } from './tracker';
+
+export class SteamHunters extends Tracker {
+	name = 'Steam Hunters';
+	signInRequired = false;
+
+	override getProfileURL() {
+		return `https://steamhunters.com/profiles/${this.profileData.steamid}?utm_campaign=userscript`;
+	}
+
+	override getGameURL(appid: number) {
+		return `https://steamhunters.com/profiles/${this.profileData.steamid}/stats/${appid}?utm_campaign=userscript`;
+	}
+
+	override async getStartedGames() {
+		const licenses = await getJSON<{ [appid: string]: LicenseDetailItem }>(`https://steamhunters.com/api/steam-users/${this.profileData.steamid}/licenses?state=started&utm_campaign=userscript`);
+
+		const games = Object.entries(licenses).map<Game>(([appid, license]) => ({
+			appid: parseInt(appid),
+			name: license.app.name,
+			unlocked: license.achievementUnlockCount,
+			total: license.app.achievementCount,
+			isPerfect: license.achievementUnlockCount >= license.app.achievementCount,
+			isCompleted: license.isCompleted,
+			isCounted: license.isCompleted && !license.isInvalidated,
+			isTrusted: !license.app.isRestricted,
+		}));
+
+		return { games };
+	}
+
+	override getRecoverLinkHTML(games: RecoverGame[]) {
+		return `
+			<form method="post" action="https://steamhunters.com/profiles/${this.profileData.steamid}/recover" target="_blank">
+				<input type="hidden" name="version" value="2.0">
+				<input type="hidden" name="apps" value="${he.escape(JSON.stringify(games))}">
+				<button type="submit" class="whiteLink">
+					Recover
+					<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+				</button>
+			</form>`;
+	}
+}
+
+interface AppDetails {
+	name: string | undefined;
+	achievementCount: number;
+	fastestCompletionTime: number | undefined;
+	medianCompletionTime: number | undefined;
+	isBanned: boolean | undefined;
+	isRemoved: boolean | undefined;
+	isRestricted: boolean | undefined;
+}
+
+interface LicenseDetailItem {
+	achievementUnlockCount: number;
+	completionTime: number | undefined;
+	isCompleted: boolean;
+	isInvalidated: boolean;
+	app: AppDetails;
+}
