@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.0.1
+// @version     1.0.2
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -581,11 +581,11 @@ class SteamHunters extends Tracker {
 const profileData = unsafeWindow.g_rgProfileData;
 const isOwnProfile = unsafeWindow.g_steamID === profileData.steamid;
 const trackers = [
-    new AStats(profileData),
     new Completionist(profileData),
+    new SteamHunters(profileData),
+    new AStats(profileData),
     new Exophase(profileData),
     new MetaGamerScore(profileData),
-    new SteamHunters(profileData),
 ];
 window.addEventListener('load', () => {
     const container = document.querySelector('.profile_rightcol');
@@ -641,7 +641,7 @@ window.addEventListener('load', () => {
 							<span class="profile_count_link_total">${trackers.length}</span>
 						</a>
 					</div>
-					${trackers.map(tracker => `<div>
+					${trackers.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1).map(tracker => `<div>
 							<label>
 								<input type="checkbox" name="trackerName" value="${tracker.name}" ${tracker.signInRequired && !isOwnProfile ? 'disabled' : ''} />
 								${tracker.name}
@@ -768,7 +768,7 @@ async function findDifferences(trackerNames, output) {
     await pool.start();
     output.innerHTML = `
 		<div class="profile_comment_area">
-			${results.filter(result => result.tracker.name !== 'Steam').map(result => {
+			${results.sort((a, b) => a.tracker.name.toUpperCase() < b.tracker.name.toUpperCase() ? -1 : 1).filter(result => result.tracker.name !== 'Steam').map(result => {
         var _a;
         let html = `
 					<div style="margin-top: 1em;">
@@ -804,7 +804,7 @@ async function findDifferences(trackerNames, output) {
                         .reduce((a, b) => a + b);
                     const namesHTML = gamesWithMissingAchievements
                         .map(x => { var _a; return ({ name: external_he_default().escape((_a = x.sourceGame.name) !== null && _a !== void 0 ? _a : `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid) }); })
-                        .sort((a, b) => a.name < b.name ? -1 : 1)
+                        .sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
                         .map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
                         .join(' &bull; ');
                     const jsonGames = gamesWithMissingAchievements.map(x => ({ appid: x.sourceGame.appid, unlocked: x.sourceGame.unlocked, total: x.sourceGame.total }));
@@ -837,7 +837,7 @@ async function findDifferences(trackerNames, output) {
                         .reduce((a, b) => a + b);
                     const namesHTML = gamesWithRemovedAchievements
                         .map(x => { var _a; return ({ name: external_he_default().escape((_a = x.sourceGame.name) !== null && _a !== void 0 ? _a : `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid) }); })
-                        .sort((a, b) => a.name < b.name ? -1 : 1)
+                        .sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
                         .map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
                         .join(' &bull; ');
                     const jsonGames = gamesWithMissingAchievements.map(x => ({ appid: x.sourceGame.appid, unlocked: x.sourceGame.unlocked, total: x.sourceGame.total }));

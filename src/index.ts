@@ -23,11 +23,11 @@ const profileData = unsafeWindow.g_rgProfileData;
 const isOwnProfile = unsafeWindow.g_steamID === profileData.steamid;
 
 const trackers: Tracker[] = [
-	new AStats(profileData),
 	new Completionist(profileData),
+	new SteamHunters(profileData),
+	new AStats(profileData),
 	new Exophase(profileData),
 	new MetaGamerScore(profileData),
-	new SteamHunters(profileData),
 ];
 
 window.addEventListener('load', () => {
@@ -88,7 +88,7 @@ window.addEventListener('load', () => {
 							<span class="profile_count_link_total">${trackers.length}</span>
 						</a>
 					</div>
-					${trackers.map(tracker =>
+					${trackers.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1).map(tracker =>
 						`<div>
 							<label>
 								<input type="checkbox" name="trackerName" value="${tracker.name}" ${tracker.signInRequired && !isOwnProfile ? 'disabled' : ''} />
@@ -240,7 +240,7 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 
 	output.innerHTML = `
 		<div class="profile_comment_area">
-			${results.filter(result => result.tracker.name !== 'Steam').map(result => {
+			${results.sort((a, b) => a.tracker.name.toUpperCase() < b.tracker.name.toUpperCase() ? -1 : 1).filter(result => result.tracker.name !== 'Steam').map(result => {
 				let html = `
 					<div style="margin-top: 1em;">
 						<a class="whiteLink" href="${result.tracker.getProfileURL()}" target="_blank">
@@ -277,7 +277,7 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 	
 							const namesHTML = gamesWithMissingAchievements
 								.map(x => ({ name: he.escape(x.sourceGame.name ?? `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid) }))
-								.sort((a, b) => a.name < b.name ? -1 : 1)
+								.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
 								.map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
 								.join(' &bull; ');
 	
@@ -313,7 +313,7 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 	
 							const namesHTML = gamesWithRemovedAchievements
 								.map(x => ({ name: he.escape(x.sourceGame.name ?? `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid) }))
-								.sort((a, b) => a.name < b.name ? -1 : 1)
+								.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
 								.map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
 								.join(' &bull; ');
 	
