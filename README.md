@@ -17,7 +17,7 @@ and Steam Community profiles.
    - If you're using Tampermonkey, press the "Install" or "Reinstall" button on the top-left.
    - If you're using Greasemonkey, press the "Install" button on the bottom-left.
 4. Go to your [Steam Community profile](https://steamcommunity.com/my).
-5. Use the new "Trackers" section near the bottom of the sidebar.
+5. Use the new "Achievement Trackers" section near the bottom of the sidebar.
 
 To update the installed userscript to the latest version, simply do step 2 again.
 
