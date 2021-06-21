@@ -145,6 +145,7 @@ window.addEventListener('load', () => {
 		buttonSpan.textContent = 'Loading...';
 
 		for (const checkbox of checkboxes) {
+			checkbox.dataset['disabled'] = checkbox.disabled.toString();
 			checkbox.disabled = true;
 		}
 
@@ -158,7 +159,7 @@ window.addEventListener('load', () => {
 		button.disabled = false;
 
 		for (const checkbox of checkboxes) {
-			checkbox.disabled = false;
+			checkbox.disabled = checkbox.dataset['disabled'] === 'true';
 		}
 	});
 

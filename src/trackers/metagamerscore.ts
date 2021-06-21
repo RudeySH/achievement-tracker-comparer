@@ -41,7 +41,8 @@ export class MetaGamerScore extends Tracker {
 	}
 
 	async addStartedGames(games: Game[], url: string) {
-		const document = await getDocument(url, { headers: { 'Cookie': `hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` } });
+		const details = { headers: { 'Cookie': `game_view=thumb; hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` }, withCredentials: false };
+		const document = await getDocument(url, details);
 		const thumbs = document.querySelectorAll('#masonry-container > div');
 
 		for (const thumb of thumbs) {

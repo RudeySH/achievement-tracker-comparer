@@ -48,7 +48,7 @@ export function xmlHttpRequest(details: GM.Request) {
 }
 
 export async function retry<T>(func: () => Promise<T>) {
-	const attempts = 3;
+	const attempts = 10;
 	let error: Error | undefined = undefined;
 
 	for (let attempt = 1; attempt <= attempts; attempt++) {

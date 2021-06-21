@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.0.2
+// @version     1.0.3
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -103,7 +103,7 @@ function xmlHttpRequest(details) {
     });
 }
 async function retry(func) {
-    const attempts = 3;
+    const attempts = 10;
     let error = undefined;
     for (let attempt = 1; attempt <= attempts; attempt++) {
         try {
@@ -365,7 +365,8 @@ class MetaGamerScore extends Tracker {
         }
     }
     async addStartedGames(games, url) {
-        const document = await getDocument(url, { headers: { 'Cookie': `hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` } });
+        const details = { headers: { 'Cookie': `game_view=thumb; hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` }, withCredentials: false };
+        const document = await getDocument(url, details);
         const thumbs = document.querySelectorAll('#masonry-container > div');
         for (const thumb of thumbs) {
             const tag = thumb.querySelector('.pfSm');
@@ -690,6 +691,7 @@ window.addEventListener('load', () => {
         button.disabled = true;
         buttonSpan.textContent = 'Loading...';
         for (const checkbox of checkboxes) {
+            checkbox.dataset['disabled'] = checkbox.disabled.toString();
             checkbox.disabled = true;
         }
         try {
@@ -701,7 +703,7 @@ window.addEventListener('load', () => {
         buttonSpan.textContent = 'Find Differences';
         button.disabled = false;
         for (const checkbox of checkboxes) {
-            checkbox.disabled = false;
+            checkbox.disabled = checkbox.dataset['disabled'] === 'true';
         }
     });
     container.appendChild(node);
