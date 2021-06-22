@@ -60,7 +60,7 @@ export class MetaGamerScore extends Tracker {
 			}
 
 			const [unlocked, total] = [...thumb.querySelectorAll('.completiondata')]
-				.map(completiondata => parseInt(completiondata.textContent!.replace(' ', '')));
+				.map(completiondata => parseInt(completiondata.textContent!.replace('\u202F', '')));
 
 			if (!(unlocked > 0)) {
 				continue;

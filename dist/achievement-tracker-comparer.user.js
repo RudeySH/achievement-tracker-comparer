@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.0.5
+// @version     1.0.6
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -379,7 +379,7 @@ class MetaGamerScore extends Tracker {
                 continue;
             }
             const [unlocked, total] = [...thumb.querySelectorAll('.completiondata')]
-                .map(completiondata => parseInt(completiondata.textContent.replace(' ', '')));
+                .map(completiondata => parseInt(completiondata.textContent.replace('\u202F', '')));
             if (!(unlocked > 0)) {
                 continue;
             }
@@ -630,9 +630,11 @@ window.addEventListener('load', () => {
 		}
 
 		.atc .commentthread_entry_quotebox {
-			overflow-y: scroll;
-			height: 48px;
 			font-size: 11px;
+			height: 48px;
+			min-height: 48px;
+			overflow-y: scroll;
+			resize: vertical;
 		}
 
 		.atc .profile_comment_area {

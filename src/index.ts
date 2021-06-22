@@ -66,9 +66,11 @@ window.addEventListener('load', () => {
 		}
 
 		.atc .commentthread_entry_quotebox {
-			overflow-y: scroll;
-			height: 48px;
 			font-size: 11px;
+			height: 48px;
+			min-height: 48px;
+			overflow-y: scroll;
+			resize: vertical;
 		}
 
 		.atc .profile_comment_area {
