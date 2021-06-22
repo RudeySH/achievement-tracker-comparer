@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.0.8
+// @version     1.0.9
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -748,9 +748,10 @@ async function findDifferences(trackerNames, output) {
         }
     }
     async function addMissingGame(appid) {
+        var _a;
         let game = steamResult === null || steamResult === void 0 ? void 0 : steamResult.games.find(game => game.appid === appid);
         if (game === undefined) {
-            const document = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'x-valveuseragent': 'panorama' } });
+            const document = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'X-ValveUserAgent': 'panorama' } });
             const match = document.body.innerHTML.match(/g_rgAchievements = (.*);/);
             if (match !== null) {
                 const g_rgAchievements = JSON.parse(match[1]);
@@ -759,7 +760,7 @@ async function findDifferences(trackerNames, output) {
                     appid,
                     unlocked: g_rgAchievements.totalClosed,
                     total: g_rgAchievements.total,
-                    name: document.body.innerHTML.match(/'SetContentTitle', '(.*) Achievements'/)[1],
+                    name: (_a = document.body.innerHTML.match(/'SetContentTitle', '(.*) Achievements'/)) === null || _a === void 0 ? void 0 : _a[1],
                     isPerfect,
                     isCompleted: isPerfect ? true : undefined,
                     isCounted: isPerfect,

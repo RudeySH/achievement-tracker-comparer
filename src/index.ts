@@ -209,7 +209,7 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 		let game = steamResult?.games.find(game => game.appid === appid);
 
 		if (game === undefined) {
-			const document = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'x-valveuseragent': 'panorama' } });
+			const document = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'X-ValveUserAgent': 'panorama' } });
 			const match = document.body.innerHTML.match(/g_rgAchievements = (.*);/);
 
 			if (match !== null) {
@@ -220,7 +220,7 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 					appid,
 					unlocked: g_rgAchievements.totalClosed,
 					total: g_rgAchievements.total,
-					name: document.body.innerHTML.match(/'SetContentTitle', '(.*) Achievements'/)![1],
+					name: document.body.innerHTML.match(/'SetContentTitle', '(.*) Achievements'/)?.[1],
 					isPerfect,
 					isCompleted: isPerfect ? true : undefined,
 					isCounted: isPerfect,
