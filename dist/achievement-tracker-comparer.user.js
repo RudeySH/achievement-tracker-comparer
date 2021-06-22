@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.0.4
+// @version     1.0.5
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -384,7 +384,11 @@ class MetaGamerScore extends Tracker {
                 continue;
             }
             const isPerfect = unlocked >= total;
-            const imagePath = thumb.querySelector('.gt_image').src
+            const image = thumb.querySelector('.gt_image');
+            if (image === null) {
+                continue;
+            }
+            const imagePath = image.src
                 .replace('https://steamcdn-a.akamaihd.net/steam/apps/', '')
                 .replace('https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/', '');
             games.push({
@@ -715,7 +719,7 @@ window.addEventListener('load', () => {
 async function findDifferences(trackerNames, output) {
     var _a;
     output.innerHTML = '';
-    let results = await Promise.all(trackers
+    const results = await Promise.all(trackers
         .filter(tracker => trackerNames.includes(tracker.name))
         .map(async (tracker) => ({ tracker, ...await tracker.getStartedGames() })));
     if (trackerNames.includes('Steam')) {
@@ -762,9 +766,6 @@ async function findDifferences(trackerNames, output) {
             }
             else {
                 game = results.flatMap(r => r.games).find(game => game.appid === appid);
-                if (appid === 1332970) {
-                    debugger;
-                }
             }
         }
         sourceGames.push(game);

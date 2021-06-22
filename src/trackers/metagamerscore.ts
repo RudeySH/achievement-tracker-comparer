@@ -22,11 +22,11 @@ export class MetaGamerScore extends Tracker {
 		const user = parseInt(new URL(redirectURL).pathname.split('/')[2]);
 		const gamesURL = `https://metagamerscore.com/my_games?user=${user}&utm_campaign=userscript`;
 
-		let details = { headers: { 'Cookie': `game_view=thumb; hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` } } as Partial<GM.Request<any>>;
+		let details = { headers: { 'Cookie': `game_view=thumb; hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` } } as Partial<GM.Request>;
 		let document = await this.addStartedGames(games, gamesURL, details);
 
 		if (games.length === 0) {
-			details = { withCredentials: false } as Partial<GM.Request<any>>;
+			details = { withCredentials: false } as Partial<GM.Request>;
 			document = await this.addStartedGames(games, gamesURL, details);
 		}
 
@@ -42,13 +42,13 @@ export class MetaGamerScore extends Tracker {
 		return { games };
 	}
 
-	* getStartedGamesIterator(games: Game[], url: string, details: Partial<GM.Request<any>>, pageCount: number) {
+	* getStartedGamesIterator(games: Game[], url: string, details: Partial<GM.Request>, pageCount: number) {
 		for (let page = 2; page <= pageCount; page++) {
 			yield this.addStartedGames(games, `${url}&page=${page}`, details);
 		}
 	}
 
-	async addStartedGames(games: Game[], url: string, details: Partial<GM.Request<any>>) {
+	async addStartedGames(games: Game[], url: string, details: Partial<GM.Request>) {
 		const document = await getDocument(url, details);
 		const thumbs = document.querySelectorAll('#masonry-container > div');
 
@@ -67,7 +67,13 @@ export class MetaGamerScore extends Tracker {
 			}
 
 			const isPerfect = unlocked >= total;
-			const imagePath = thumb.querySelector<HTMLImageElement>('.gt_image')!.src
+			const image = thumb.querySelector<HTMLImageElement>('.gt_image');
+
+			if (image === null) {
+				continue;
+			}
+
+			const imagePath = image.src
 				.replace('https://steamcdn-a.akamaihd.net/steam/apps/', '')
 				.replace('https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/', '');
 
