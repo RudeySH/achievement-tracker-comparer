@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.0.6
+// @version     1.0.7
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -175,7 +175,7 @@ class AStats extends Tracker {
     }
     async getStartedGames() {
         const games = [];
-        const document = await getDocument(`https://astats.astats.nl/astats/User_Games.php?SteamID64=${this.profileData.steamid}&AchievementsOnly=1&Limit=0&utm_campaign=userscript`);
+        const document = await getDocument(`https://astats.astats.nl/astats/User_Games.php?Limit=0&Hidden=1&AchievementsOnly=1&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`);
         const rows = document.querySelectorAll('table:not(.Pager) tbody tr');
         for (const row of rows) {
             const validUnlocked = parseInt(row.cells[2].textContent);

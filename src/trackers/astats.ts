@@ -16,7 +16,7 @@ export class AStats extends Tracker {
 
 	override async getStartedGames() {
 		const games: Game[] = [];
-		const document = await getDocument(`https://astats.astats.nl/astats/User_Games.php?SteamID64=${this.profileData.steamid}&AchievementsOnly=1&Limit=0&utm_campaign=userscript`);
+		const document = await getDocument(`https://astats.astats.nl/astats/User_Games.php?Limit=0&Hidden=1&AchievementsOnly=1&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`);
 		const rows = document.querySelectorAll<HTMLTableRowElement>('table:not(.Pager) tbody tr');
 
 		for (const row of rows) {

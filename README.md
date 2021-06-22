@@ -1,4 +1,4 @@
-# achievement-tracker-comparer
+# Achievement Tracker Comparer
 Compare achievements between
 [AStats](https://astats.astats.nl/astats/),
 [completionist.me](https://completionist.me/),
