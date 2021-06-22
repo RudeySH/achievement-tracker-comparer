@@ -21,12 +21,20 @@ export class MetaGamerScore extends Tracker {
 		const redirectURL = await getRedirectURL(profileURL);
 		const user = parseInt(new URL(redirectURL).pathname.split('/')[2]);
 		const gamesURL = `https://metagamerscore.com/my_games?user=${user}&utm_campaign=userscript`;
-		const document = await this.addStartedGames(games, gamesURL);
+
+		let details = { headers: { 'Cookie': `game_view=thumb; hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` } } as Partial<GM.Request<any>>;
+		let document = await this.addStartedGames(games, gamesURL, details);
+
+		if (games.length === 0) {
+			details = { withCredentials: false } as Partial<GM.Request<any>>;
+			document = await this.addStartedGames(games, gamesURL, details);
+		}
+
 		const lastPageAnchor = document.querySelector<HTMLAnchorElement>('.last a');
 
 		if (lastPageAnchor !== null) {
 			const pageCount = parseInt(new URL(lastPageAnchor.href).searchParams.get('page')!);
-			const iterator = this.getStartedGamesIterator(games, gamesURL, pageCount);
+			const iterator = this.getStartedGamesIterator(games, gamesURL, details, pageCount);
 			const pool = new PromisePool(iterator, 6);
 			await pool.start();
 		}
@@ -34,14 +42,13 @@ export class MetaGamerScore extends Tracker {
 		return { games };
 	}
 
-	* getStartedGamesIterator(games: Game[], url: string, pageCount: number) {
+	* getStartedGamesIterator(games: Game[], url: string, details: Partial<GM.Request<any>>, pageCount: number) {
 		for (let page = 2; page <= pageCount; page++) {
-			yield this.addStartedGames(games, `${url}&page=${page}`);
+			yield this.addStartedGames(games, `${url}&page=${page}`, details);
 		}
 	}
 
-	async addStartedGames(games: Game[], url: string) {
-		const details = { headers: { 'Cookie': `game_view=thumb; hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` }, withCredentials: false };
+	async addStartedGames(games: Game[], url: string, details: Partial<GM.Request<any>>) {
 		const document = await getDocument(url, details);
 		const thumbs = document.querySelectorAll('#masonry-container > div');
 
