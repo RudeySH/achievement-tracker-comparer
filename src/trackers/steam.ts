@@ -15,9 +15,9 @@ export class Steam extends Tracker {
 	}
 
 	override async getStartedGames(appids: number[]) {
-		const document = await getDocument(`${this.getProfileURL()}/edit/showcases`);
-		const achievementShowcaseGames: AchievementShowcaseGame[] = JSON.parse(document.getElementById('showcase_preview_17')!.innerHTML.match(/g_rgAchievementShowcaseGamesWithAchievements = (.*);/)![1]);
-		const completionistShowcaseGames: CompletionistShowcaseGame[] = JSON.parse(document.getElementById('showcase_preview_23')!.innerHTML.match(/g_rgAchievementsCompletionshipShowcasePerfectGames = (.*);/)![1]);
+		const doc = await getDocument(`${this.getProfileURL()}/edit/showcases`);
+		const achievementShowcaseGames: AchievementShowcaseGame[] = JSON.parse(doc.getElementById('showcase_preview_17')!.innerHTML.match(/g_rgAchievementShowcaseGamesWithAchievements = (.*);/)![1]);
+		const completionistShowcaseGames: CompletionistShowcaseGame[] = JSON.parse(doc.getElementById('showcase_preview_23')!.innerHTML.match(/g_rgAchievementsCompletionshipShowcasePerfectGames = (.*);/)![1]);
 
 		appids = [...new Set([
 			...appids,

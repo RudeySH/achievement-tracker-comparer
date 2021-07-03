@@ -23,14 +23,14 @@ export class MetaGamerScore extends Tracker {
 		const gamesURL = `https://metagamerscore.com/my_games?user=${user}&utm_campaign=userscript`;
 
 		let details = { headers: { 'Cookie': `game_view=thumb; hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` } } as Partial<GM.Request>;
-		let document = await this.addStartedGames(games, gamesURL, details);
+		let doc = await this.addStartedGames(games, gamesURL, details);
 
 		if (games.length === 0) {
 			details = { withCredentials: false } as Partial<GM.Request>;
-			document = await this.addStartedGames(games, gamesURL, details);
+			doc = await this.addStartedGames(games, gamesURL, details);
 		}
 
-		const lastPageAnchor = document.querySelector<HTMLAnchorElement>('.last a');
+		const lastPageAnchor = doc.querySelector<HTMLAnchorElement>('.last a');
 
 		if (lastPageAnchor !== null) {
 			const pageCount = parseInt(new URL(lastPageAnchor.href).searchParams.get('page')!);
@@ -49,8 +49,8 @@ export class MetaGamerScore extends Tracker {
 	}
 
 	async addStartedGames(games: Game[], url: string, details: Partial<GM.Request>) {
-		const document = await getDocument(url, details);
-		const thumbs = document.querySelectorAll('#masonry-container > div');
+		const doc = await getDocument(url, details);
+		const thumbs = doc.querySelectorAll('#masonry-container > div');
 
 		for (const thumb of thumbs) {
 			const tag = thumb.querySelector<HTMLElement>('.pfSm')!;
@@ -89,7 +89,7 @@ export class MetaGamerScore extends Tracker {
 			});
 		}
 
-		return document;
+		return doc;
 	}
 
 	override getRecoverLinkHTML() {

@@ -19,8 +19,8 @@ export class Completionist extends Tracker {
 		const games: Game[] = [];
 
 		const url = `https://completionist.me/steam/profile/${this.profileData.steamid}/apps?display=flat&sort=started&order=asc&completion=started&utm_campaign=userscript`;
-		const document = await this.addStartedGames(games, url);
-		const lastPageAnchor = document.querySelector<HTMLAnchorElement>('.pagination a:last-of-type');
+		const doc = await this.addStartedGames(games, url);
+		const lastPageAnchor = doc.querySelector<HTMLAnchorElement>('.pagination a:last-of-type');
 
 		if (lastPageAnchor !== null) {
 			const pageCount = parseInt(new URL(lastPageAnchor.href).searchParams.get('page')!);
@@ -39,8 +39,8 @@ export class Completionist extends Tracker {
 	}
 
 	async addStartedGames(games: Game[], url: string) {
-		const document = await getDocument(url);
-		const rows = document.querySelectorAll<HTMLTableRowElement>('.games-list tbody tr');
+		const doc = await getDocument(url);
+		const rows = doc.querySelectorAll<HTMLTableRowElement>('.games-list tbody tr');
 
 		for (const row of rows) {
 			const nameCell = row.cells[1];
@@ -62,7 +62,7 @@ export class Completionist extends Tracker {
 			});
 		}
 
-		return document;
+		return doc;
 	}
 
 	override getRecoverLinkHTML(games: RecoverGame[]) {

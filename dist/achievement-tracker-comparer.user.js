@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.0.9
+// @version     1.0.10
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -175,8 +175,8 @@ class AStats extends Tracker {
     }
     async getStartedGames() {
         const games = [];
-        const document = await getDocument(`https://astats.astats.nl/astats/User_Games.php?Limit=0&Hidden=1&AchievementsOnly=1&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`);
-        const rows = document.querySelectorAll('table:not(.Pager) tbody tr');
+        const doc = await getDocument(`https://astats.astats.nl/astats/User_Games.php?Limit=0&Hidden=1&AchievementsOnly=1&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`);
+        const rows = doc.querySelectorAll('table:not(.Pager) tbody tr');
         for (const row of rows) {
             const validUnlocked = parseInt(row.cells[2].textContent);
             const unlocked = validUnlocked + (parseInt(row.cells[3].textContent) || 0);
@@ -222,8 +222,8 @@ class Completionist extends Tracker {
     async getStartedGames() {
         const games = [];
         const url = `https://completionist.me/steam/profile/${this.profileData.steamid}/apps?display=flat&sort=started&order=asc&completion=started&utm_campaign=userscript`;
-        const document = await this.addStartedGames(games, url);
-        const lastPageAnchor = document.querySelector('.pagination a:last-of-type');
+        const doc = await this.addStartedGames(games, url);
+        const lastPageAnchor = doc.querySelector('.pagination a:last-of-type');
         if (lastPageAnchor !== null) {
             const pageCount = parseInt(new URL(lastPageAnchor.href).searchParams.get('page'));
             const iterator = this.getStartedGamesIterator(games, url, pageCount);
@@ -239,8 +239,8 @@ class Completionist extends Tracker {
     }
     async addStartedGames(games, url) {
         var _a;
-        const document = await getDocument(url);
-        const rows = document.querySelectorAll('.games-list tbody tr');
+        const doc = await getDocument(url);
+        const rows = doc.querySelectorAll('.games-list tbody tr');
         for (const row of rows) {
             const nameCell = row.cells[1];
             const anchor = nameCell.querySelector('a');
@@ -259,7 +259,7 @@ class Completionist extends Tracker {
                 isTrusted: nameCell.querySelector('.fa-spinner') === null,
             });
         }
-        return document;
+        return doc;
     }
     getRecoverLinkHTML(games) {
         return `
@@ -350,12 +350,12 @@ class MetaGamerScore extends Tracker {
         const user = parseInt(new URL(redirectURL).pathname.split('/')[2]);
         const gamesURL = `https://metagamerscore.com/my_games?user=${user}&utm_campaign=userscript`;
         let details = { headers: { 'Cookie': `game_view=thumb; hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` } };
-        let document = await this.addStartedGames(games, gamesURL, details);
+        let doc = await this.addStartedGames(games, gamesURL, details);
         if (games.length === 0) {
             details = { withCredentials: false };
-            document = await this.addStartedGames(games, gamesURL, details);
+            doc = await this.addStartedGames(games, gamesURL, details);
         }
-        const lastPageAnchor = document.querySelector('.last a');
+        const lastPageAnchor = doc.querySelector('.last a');
         if (lastPageAnchor !== null) {
             const pageCount = parseInt(new URL(lastPageAnchor.href).searchParams.get('page'));
             const iterator = this.getStartedGamesIterator(games, gamesURL, details, pageCount);
@@ -370,8 +370,8 @@ class MetaGamerScore extends Tracker {
         }
     }
     async addStartedGames(games, url, details) {
-        const document = await getDocument(url, details);
-        const thumbs = document.querySelectorAll('#masonry-container > div');
+        const doc = await getDocument(url, details);
+        const thumbs = doc.querySelectorAll('#masonry-container > div');
         for (const thumb of thumbs) {
             const tag = thumb.querySelector('.pfSm');
             if (!tag.classList.contains('pfTSteam')) {
@@ -402,7 +402,7 @@ class MetaGamerScore extends Tracker {
                 isTrusted: undefined,
             });
         }
-        return document;
+        return doc;
     }
     getRecoverLinkHTML() {
         return `
@@ -429,9 +429,9 @@ class Steam extends Tracker {
         return `${this.getProfileURL()}/stats/${appid}?tab=achievements`;
     }
     async getStartedGames(appids) {
-        const document = await getDocument(`${this.getProfileURL()}/edit/showcases`);
-        const achievementShowcaseGames = JSON.parse(document.getElementById('showcase_preview_17').innerHTML.match(/g_rgAchievementShowcaseGamesWithAchievements = (.*);/)[1]);
-        const completionistShowcaseGames = JSON.parse(document.getElementById('showcase_preview_23').innerHTML.match(/g_rgAchievementsCompletionshipShowcasePerfectGames = (.*);/)[1]);
+        const doc = await getDocument(`${this.getProfileURL()}/edit/showcases`);
+        const achievementShowcaseGames = JSON.parse(doc.getElementById('showcase_preview_17').innerHTML.match(/g_rgAchievementShowcaseGamesWithAchievements = (.*);/)[1]);
+        const completionistShowcaseGames = JSON.parse(doc.getElementById('showcase_preview_23').innerHTML.match(/g_rgAchievementsCompletionshipShowcasePerfectGames = (.*);/)[1]);
         appids = [...new Set([
                 ...appids,
                 ...achievementShowcaseGames.map(game => game.appid),
@@ -751,8 +751,8 @@ async function findDifferences(trackerNames, output) {
         var _a;
         let game = steamResult === null || steamResult === void 0 ? void 0 : steamResult.games.find(game => game.appid === appid);
         if (game === undefined) {
-            const document = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'X-ValveUserAgent': 'panorama' } });
-            const match = document.body.innerHTML.match(/g_rgAchievements = (.*);/);
+            const doc = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'X-ValveUserAgent': 'panorama' } });
+            const match = doc.body.innerHTML.match(/g_rgAchievements = (.*);/);
             if (match !== null) {
                 const g_rgAchievements = JSON.parse(match[1]);
                 const isPerfect = g_rgAchievements.totalClosed === g_rgAchievements.total;
@@ -760,7 +760,7 @@ async function findDifferences(trackerNames, output) {
                     appid,
                     unlocked: g_rgAchievements.totalClosed,
                     total: g_rgAchievements.total,
-                    name: (_a = document.body.innerHTML.match(/'SetContentTitle', '(.*) Achievements'/)) === null || _a === void 0 ? void 0 : _a[1],
+                    name: (_a = doc.body.innerHTML.match(/'SetContentTitle', '(.*) Achievements'/)) === null || _a === void 0 ? void 0 : _a[1],
                     isPerfect,
                     isCompleted: isPerfect ? true : undefined,
                     isCounted: isPerfect,
