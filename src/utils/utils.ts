@@ -1,4 +1,4 @@
-const domParser = new DOMParser();
+export const domParser = new DOMParser();
 
 export async function getDocument(url: string, details?: Partial<GM.Request>) {
 	const data = await xmlHttpRequest({

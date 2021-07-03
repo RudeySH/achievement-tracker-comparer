@@ -1,5 +1,5 @@
 import { Game } from '../interfaces/game';
-import { getDocument, retry } from '../utils/utils';
+import { domParser, retry } from '../utils/utils';
 import { Tracker } from './tracker';
 
 export class Steam extends Tracker {
@@ -15,7 +15,8 @@ export class Steam extends Tracker {
 	}
 
 	override async getStartedGames(appids: number[]) {
-		const doc = await getDocument(`${this.getProfileURL()}/edit/showcases`);
+		const response = await fetch(`${this.getProfileURL()}/edit/showcases`, { credentials: 'same-origin' });
+		const doc = domParser.parseFromString(await response.text(), 'text/html');
 		const achievementShowcaseGames: AchievementShowcaseGame[] = JSON.parse(doc.getElementById('showcase_preview_17')!.innerHTML.match(/g_rgAchievementShowcaseGamesWithAchievements = (.*);/)![1]);
 		const completionistShowcaseGames: CompletionistShowcaseGame[] = JSON.parse(doc.getElementById('showcase_preview_23')!.innerHTML.match(/g_rgAchievementsCompletionshipShowcasePerfectGames = (.*);/)![1]);
 
