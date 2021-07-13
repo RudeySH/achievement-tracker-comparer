@@ -210,7 +210,7 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 
 		if (game === undefined) {
 			const doc = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'X-ValveUserAgent': 'panorama' } });
-			const match = doc.body.innerHTML.match(/g_rgAchievements = (.*);/);
+			const match = doc.body.innerHTML.match(/g_rgAchievements = ({.*});/);
 
 			if (match !== null) {
 				const g_rgAchievements: { total: number; totalClosed: number; } = JSON.parse(match[1]);

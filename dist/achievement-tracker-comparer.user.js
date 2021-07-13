@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.0.11
+// @version     1.0.12
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -753,7 +753,7 @@ async function findDifferences(trackerNames, output) {
         let game = steamResult === null || steamResult === void 0 ? void 0 : steamResult.games.find(game => game.appid === appid);
         if (game === undefined) {
             const doc = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'X-ValveUserAgent': 'panorama' } });
-            const match = doc.body.innerHTML.match(/g_rgAchievements = (.*);/);
+            const match = doc.body.innerHTML.match(/g_rgAchievements = ({.*});/);
             if (match !== null) {
                 const g_rgAchievements = JSON.parse(match[1]);
                 const isPerfect = g_rgAchievements.totalClosed === g_rgAchievements.total;
