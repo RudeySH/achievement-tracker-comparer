@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.0.12
+// @version     1.0.13
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
 // @supportURL  https://github.com/RudeySH/achievement-tracker-comparer/issues
-// @match       https://steamcommunity.com/id/*
-// @match       https://steamcommunity.com/profiles/*
+// @include     /^https://steamcommunity\.com/id/\w{3,32}/*$/
+// @include     /^https://steamcommunity\.com/profiles/\d{17}/*$/
 // @namespace   https://github.com/RudeySH/achievement-tracker-comparer
 // @grant       GM.xmlHttpRequest
 // @connect     astats.nl
@@ -580,6 +580,7 @@ class SteamHunters extends Tracker {
 }
 
 ;// CONCATENATED MODULE: ./src/index.ts
+var _a;
 
 
 
@@ -588,7 +589,7 @@ class SteamHunters extends Tracker {
 
 
 
-const profileData = unsafeWindow.g_rgProfileData;
+const profileData = (_a = unsafeWindow.g_rgProfileData) !== null && _a !== void 0 ? _a : {};
 const isOwnProfile = unsafeWindow.g_steamID === profileData.steamid;
 const trackers = [
     new Completionist(profileData),

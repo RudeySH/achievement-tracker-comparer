@@ -19,7 +19,7 @@ declare global {
 	}
 }
 
-const profileData = unsafeWindow.g_rgProfileData;
+const profileData = unsafeWindow.g_rgProfileData ?? {};
 const isOwnProfile = unsafeWindow.g_steamID === profileData.steamid;
 
 const trackers: Tracker[] = [

@@ -30,9 +30,9 @@ var config = {
     new WebpackUserscript({
       headers: {
         name: 'Achievement Tracker Comparer',
-        match: [
-          'https://steamcommunity.com/id/*',
-          'https://steamcommunity.com/profiles/*',
+        include: [
+          '/^https://steamcommunity\\.com/id/\\w{3,32}/*$/',
+          '/^https://steamcommunity\\.com/profiles/\\d{17}/*$/',
         ],
         namespace: 'https://github.com/RudeySH/achievement-tracker-comparer',
         grant: 'GM.xmlHttpRequest',
