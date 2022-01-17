@@ -5,13 +5,18 @@ import { Tracker } from './tracker';
 export class MetaGamerScore extends Tracker {
 	name = 'MetaGamerScore';
 	signInRequired = false;
+	userID?: string;
 
 	override getProfileURL() {
 		return `https://metagamerscore.com/steam/id/${this.profileData.steamid}?utm_campaign=userscript`;
 	}
 
-	override getGameURL() {
-		return undefined;
+	override getGameURL(_appid: number, name: string | undefined) {
+		if (this.userID === undefined || name === undefined) {
+			return undefined;
+		}
+
+		return `https://metagamerscore.com/my_games?user=${this.userID}&filter=${encodeURIComponent(name)}&utm_campaign=userscript`;
 	}
 
 	override async getStartedGames() {
@@ -19,8 +24,9 @@ export class MetaGamerScore extends Tracker {
 
 		const profileURL = this.getProfileURL();
 		const redirectURL = await getRedirectURL(profileURL);
-		const user = parseInt(new URL(redirectURL).pathname.split('/')[2]);
-		const gamesURL = `https://metagamerscore.com/my_games?user=${user}&utm_campaign=userscript`;
+		this.userID = new URL(redirectURL).pathname.split('/')[2];
+
+		const gamesURL = `https://metagamerscore.com/my_games?user=${this.userID}&utm_campaign=userscript`;
 
 		let details = { headers: { 'Cookie': `game_view=thumb; hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` } } as Partial<GM.Request>;
 		let doc = await this.addStartedGames(games, gamesURL, details);
@@ -73,13 +79,15 @@ export class MetaGamerScore extends Tracker {
 				continue;
 			}
 
-			const imagePath = image.src
-				.replace('https://steamcdn-a.akamaihd.net/steam/apps/', '')
-				.replace('https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/', '');
+			const prefix = '/apps/';
+			const imagePath = image.src.substring(image.src.indexOf(prefix) + prefix.length);
+
+			const appid = parseInt(imagePath.split('/')[0]);
+			const name = thumb.querySelector('.sort_gt_tt a')!.textContent!.trim();
 
 			games.push({
-				appid: parseInt(imagePath.split('/')[0]),
-				name: thumb.querySelector('.sort_gt_tt a')!.textContent!.trim(),
+				appid,
+				name,
 				unlocked,
 				total,
 				isPerfect,

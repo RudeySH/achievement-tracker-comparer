@@ -51,7 +51,7 @@ export class Completionist extends Tracker {
 			const isPerfect = unlocked >= total;
 
 			games.push({
-				appid: parseInt(anchor.href.substr(anchor.href.lastIndexOf('/') + 1)),
+				appid: parseInt(anchor.href.substring(anchor.href.lastIndexOf('/') + 1)),
 				name: nameCell.textContent!.trim(),
 				unlocked,
 				total,

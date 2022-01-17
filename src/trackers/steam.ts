@@ -7,7 +7,7 @@ export class Steam extends Tracker {
 	signInRequired = false;
 
 	override getProfileURL() {
-		return this.profileData.url.substr(0, this.profileData.url.length - 1);
+		return this.profileData.url.substring(0, this.profileData.url.length - 1);
 	}
 
 	override getGameURL(appid: number) {

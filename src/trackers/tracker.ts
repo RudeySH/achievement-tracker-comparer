@@ -13,7 +13,7 @@ export abstract class Tracker {
 
 	abstract getProfileURL(): string;
 
-	abstract getGameURL(appid: number): string | undefined;
+	abstract getGameURL(appid: number, name: string | undefined): string | undefined;
 
 	abstract getStartedGames(appids?: number[]): Promise<{ message?: string, games: Game[] }>;
 

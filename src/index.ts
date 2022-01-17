@@ -276,7 +276,7 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 								.reduce((a, b) => a + b);
 
 							const namesHTML = gamesWithMissingAchievements
-								.map(x => ({ name: he.escape(x.sourceGame.name ?? `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid) }))
+								.map(x => ({ name: he.escape(x.sourceGame.name ?? `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid, x.sourceGame.name) }))
 								.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
 								.map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
 								.join(' &bull; ');
@@ -312,7 +312,7 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 								.reduce((a, b) => a + b);
 
 							const namesHTML = gamesWithRemovedAchievements
-								.map(x => ({ name: he.escape(x.sourceGame.name ?? `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid) }))
+								.map(x => ({ name: he.escape(x.sourceGame.name ?? `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid, x.sourceGame.name) }))
 								.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
 								.map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
 								.join(' &bull; ');
@@ -438,8 +438,8 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 						appid: game.appid,
 						name: game.name,
 						messages: messages.join('; '),
-						sourceURL: source.tracker.getGameURL(game.appid),
-						targetURL: target.tracker.getGameURL(game.appid),
+						sourceURL: source.tracker.getGameURL(game.appid, game.name),
+						targetURL: target.tracker.getGameURL(game.appid, game.name),
 					});
 				}
 			}

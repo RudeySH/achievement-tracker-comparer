@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.0.13
+// @version     1.1.0
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -249,7 +249,7 @@ class Completionist extends Tracker {
             const total = (_a = counts[1]) !== null && _a !== void 0 ? _a : unlocked;
             const isPerfect = unlocked >= total;
             games.push({
-                appid: parseInt(anchor.href.substr(anchor.href.lastIndexOf('/') + 1)),
+                appid: parseInt(anchor.href.substring(anchor.href.lastIndexOf('/') + 1)),
                 name: nameCell.textContent.trim(),
                 unlocked,
                 total,
@@ -340,15 +340,18 @@ class MetaGamerScore extends Tracker {
     getProfileURL() {
         return `https://metagamerscore.com/steam/id/${this.profileData.steamid}?utm_campaign=userscript`;
     }
-    getGameURL() {
-        return undefined;
+    getGameURL(_appid, name) {
+        if (this.userID === undefined || name === undefined) {
+            return undefined;
+        }
+        return `https://metagamerscore.com/my_games?user=${this.userID}&filter=${encodeURIComponent(name)}&utm_campaign=userscript`;
     }
     async getStartedGames() {
         const games = [];
         const profileURL = this.getProfileURL();
         const redirectURL = await getRedirectURL(profileURL);
-        const user = parseInt(new URL(redirectURL).pathname.split('/')[2]);
-        const gamesURL = `https://metagamerscore.com/my_games?user=${user}&utm_campaign=userscript`;
+        this.userID = new URL(redirectURL).pathname.split('/')[2];
+        const gamesURL = `https://metagamerscore.com/my_games?user=${this.userID}&utm_campaign=userscript`;
         let details = { headers: { 'Cookie': `game_view=thumb; hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` } };
         let doc = await this.addStartedGames(games, gamesURL, details);
         if (games.length === 0) {
@@ -388,12 +391,13 @@ class MetaGamerScore extends Tracker {
             if (image === null) {
                 continue;
             }
-            const imagePath = image.src
-                .replace('https://steamcdn-a.akamaihd.net/steam/apps/', '')
-                .replace('https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/', '');
+            const prefix = '/apps/';
+            const imagePath = image.src.substring(image.src.indexOf(prefix) + prefix.length);
+            const appid = parseInt(imagePath.split('/')[0]);
+            const name = thumb.querySelector('.sort_gt_tt a').textContent.trim();
             games.push({
-                appid: parseInt(imagePath.split('/')[0]),
-                name: thumb.querySelector('.sort_gt_tt a').textContent.trim(),
+                appid,
+                name,
                 unlocked,
                 total,
                 isPerfect,
@@ -423,7 +427,7 @@ class Steam extends Tracker {
         this.signInRequired = false;
     }
     getProfileURL() {
-        return this.profileData.url.substr(0, this.profileData.url.length - 1);
+        return this.profileData.url.substring(0, this.profileData.url.length - 1);
     }
     getGameURL(appid) {
         return `${this.getProfileURL()}/stats/${appid}?tab=achievements`;
@@ -815,7 +819,7 @@ async function findDifferences(trackerNames, output) {
                         .map(x => { var _a, _b; return x.sourceGame.unlocked - ((_b = (_a = x.targetGame) === null || _a === void 0 ? void 0 : _a.unlocked) !== null && _b !== void 0 ? _b : 0); })
                         .reduce((a, b) => a + b);
                     const namesHTML = gamesWithMissingAchievements
-                        .map(x => { var _a; return ({ name: external_he_default().escape((_a = x.sourceGame.name) !== null && _a !== void 0 ? _a : `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid) }); })
+                        .map(x => { var _a; return ({ name: external_he_default().escape((_a = x.sourceGame.name) !== null && _a !== void 0 ? _a : `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid, x.sourceGame.name) }); })
                         .sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
                         .map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
                         .join(' &bull; ');
@@ -848,7 +852,7 @@ async function findDifferences(trackerNames, output) {
                         .map(x => { var _a, _b; return ((_b = (_a = x.targetGame) === null || _a === void 0 ? void 0 : _a.unlocked) !== null && _b !== void 0 ? _b : 0) - x.sourceGame.unlocked; })
                         .reduce((a, b) => a + b);
                     const namesHTML = gamesWithRemovedAchievements
-                        .map(x => { var _a; return ({ name: external_he_default().escape((_a = x.sourceGame.name) !== null && _a !== void 0 ? _a : `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid) }); })
+                        .map(x => { var _a; return ({ name: external_he_default().escape((_a = x.sourceGame.name) !== null && _a !== void 0 ? _a : `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid, x.sourceGame.name) }); })
                         .sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
                         .map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
                         .join(' &bull; ');
@@ -964,8 +968,8 @@ async function findDifferences(trackerNames, output) {
                         appid: game.appid,
                         name: game.name,
                         messages: messages.join('; '),
-                        sourceURL: source.tracker.getGameURL(game.appid),
-                        targetURL: target.tracker.getGameURL(game.appid),
+                        sourceURL: source.tracker.getGameURL(game.appid, game.name),
+                        targetURL: target.tracker.getGameURL(game.appid, game.name),
                     });
                 }
             }
