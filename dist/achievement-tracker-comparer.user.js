@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.1.0
+// @version     1.1.1
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -565,7 +565,7 @@ class SteamHunters extends Tracker {
             total: license.app.achievementCount,
             isPerfect: license.achievementUnlockCount >= license.app.achievementCount,
             isCompleted: license.isCompleted,
-            isCounted: license.isCompleted && !license.isInvalidated,
+            isCounted: license.isCompleted && !license.isInvalid,
             isTrusted: !license.app.isRestricted,
         }));
         return { games };

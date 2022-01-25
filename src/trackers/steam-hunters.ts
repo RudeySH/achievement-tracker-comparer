@@ -26,7 +26,7 @@ export class SteamHunters extends Tracker {
 			total: license.app.achievementCount,
 			isPerfect: license.achievementUnlockCount >= license.app.achievementCount,
 			isCompleted: license.isCompleted,
-			isCounted: license.isCompleted && !license.isInvalidated,
+			isCounted: license.isCompleted && !license.isInvalid,
 			isTrusted: !license.app.isRestricted,
 		}));
 
@@ -49,17 +49,20 @@ export class SteamHunters extends Tracker {
 interface AppDetails {
 	name: string | undefined;
 	achievementCount: number;
+	unobtainableAchievementCount: number;
+	points: number;
 	fastestCompletionTime: number | undefined;
 	medianCompletionTime: number | undefined;
-	isBanned: boolean | undefined;
 	isRemoved: boolean | undefined;
 	isRestricted: boolean | undefined;
 }
 
 interface LicenseDetailItem {
+	playtime: number;
+	isInvalid: boolean;
 	achievementUnlockCount: number;
+	points: number;
 	completionTime: number | undefined;
 	isCompleted: boolean;
-	isInvalidated: boolean;
 	app: AppDetails;
 }
