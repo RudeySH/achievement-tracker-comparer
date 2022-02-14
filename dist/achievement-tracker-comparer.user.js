@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.2.0
+// @version     1.2.1
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -62,6 +62,7 @@ var __webpack_exports__ = {};
 const external_he_namespaceObject = he;
 var external_he_default = /*#__PURE__*/__webpack_require__.n(external_he_namespaceObject);
 ;// CONCATENATED MODULE: ./src/utils/utils.ts
+const iconExternalLink = '<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif?utm_campaign=userscript" alt="" aria-hidden="true" />';
 const domParser = new DOMParser();
 async function getDocument(url, details) {
     const data = await xmlHttpRequest({
@@ -263,12 +264,11 @@ class Completionist extends Tracker {
     }
     getRecoverLinkHTML(games) {
         return `
-			<form method="post" action="https://completionist.me/steam/recover/profile" target="_blank">
+			<form method="post" action="https://completionist.me/steam/recover/profile?utm_campaign=userscript" target="_blank">
 				<input type="hidden" name="app_ids" value="${games.map(game => game.appid)}">
 				<input type="hidden" name="profile_id" value="${this.profileData.steamid}">
 				<button type="submit" class="whiteLink">
-					Recover
-					<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+					Recover ${iconExternalLink}
 				</button>
 			</form>`;
     }
@@ -281,7 +281,7 @@ class Exophase extends Tracker {
     constructor() {
         super(...arguments);
         this.name = 'Exophase';
-        this.signInLink = 'https://www.exophase.com/login/';
+        this.signInLink = 'https://www.exophase.com/login/?utm_campaign=userscript';
         this.ownProfileOnly = true;
     }
     getProfileURL() {
@@ -318,9 +318,8 @@ class Exophase extends Tracker {
     }
     getRecoverLinkHTML() {
         return `
-			<a class="whiteLink" href="https://www.exophase.com/account/#tools" target="_blank">
-				Recover
-				<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+			<a class="whiteLink" href="https://www.exophase.com/account/?utm_campaign=userscript#tools" target="_blank">
+				Recover ${iconExternalLink}
 			</a>`;
     }
 }
@@ -332,7 +331,7 @@ class MetaGamerScore extends Tracker {
     constructor() {
         super(...arguments);
         this.name = 'MetaGamerScore';
-        this.signInLink = 'https://metagamerscore.com/users/sign_in';
+        this.signInLink = 'https://metagamerscore.com/users/sign_in?utm_campaign=userscript';
     }
     getProfileURL() {
         return `https://metagamerscore.com/steam/id/${this.profileData.steamid}?utm_campaign=userscript`;
@@ -349,7 +348,7 @@ class MetaGamerScore extends Tracker {
         this.userID = new URL(redirectURL).pathname.split('/')[2];
         let mgsGames;
         try {
-            mgsGames = await getJSON(`https://metagamerscore.com/api/mygames/steam/${this.userID}`);
+            mgsGames = await getJSON(`https://metagamerscore.com/api/mygames/steam/${this.userID}?utm_campaign=userscript`);
         }
         catch {
             console.error('Unable to retrieve MetaGamerScore games. Are you signed in on MetaGamerScore.com?');
@@ -369,9 +368,8 @@ class MetaGamerScore extends Tracker {
     }
     getRecoverLinkHTML() {
         return `
-			<a class="whiteLink" href="https://metagamerscore.com/steam/index_reconcile" target="_blank">
-				Recover
-				<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+			<a class="whiteLink" href="https://metagamerscore.com/steam/index_reconcile?utm_campaign=userscript" target="_blank">
+				Recover ${iconExternalLink}
 			</a>`;
     }
 }
@@ -529,12 +527,11 @@ class SteamHunters extends Tracker {
     }
     getRecoverLinkHTML(games) {
         return `
-			<form method="post" action="https://steamhunters.com/profiles/${this.profileData.steamid}/recover" target="_blank">
+			<form method="post" action="https://steamhunters.com/profiles/${this.profileData.steamid}/recover?utm_campaign=userscript" target="_blank">
 				<input type="hidden" name="version" value="2.0">
 				<input type="hidden" name="apps" value="${external_he_default().escape(JSON.stringify(games))}">
 				<button type="submit" class="whiteLink">
-					Recover
-					<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+					Recover ${iconExternalLink}
 				</button>
 			</form>`;
     }
@@ -621,7 +618,7 @@ window.addEventListener('load', () => {
 								${tracker.name}
 							</label>
 							<a class="whiteLink" href="${tracker.getProfileURL()}" target="_blank">
-								<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+								${iconExternalLink}
 							</a>
 							${tracker.signInLink ? '<small class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">1</small>' : ''}
 							${tracker.ownProfileOnly ? '<small class="atc_help" title="Own profile only" aria-describedby="atc_own_profile_only">2</small>' : ''}
@@ -752,8 +749,7 @@ async function findDifferences(trackerNames, output) {
         let html = `
 					<div style="margin-top: 1em;">
 						<a class="whiteLink" href="${result.tracker.getProfileURL()}" target="_blank">
-							${result.tracker.name}
-							<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+							${result.tracker.name} ${iconExternalLink}
 						</a>
 					</div>`;
         if (result.signIn) {
@@ -761,7 +757,7 @@ async function findDifferences(trackerNames, output) {
 						<span style="color: #b33b32;">
 							✖
 							<a class="whiteLink" href="${result.tracker.signInLink}" target="_blank">
-								Sign in ${result.signInAs ? `as ${external_he_default().escape(result.signInAs)}` : ''} <img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+								Sign in ${result.signInAs ? `as ${external_he_default().escape(result.signInAs)}` : ''} ${iconExternalLink}
 							</a>
 						</span>`;
         }

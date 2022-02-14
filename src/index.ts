@@ -9,7 +9,7 @@ import { MetaGamerScore } from './trackers/metagamerscore';
 import { Steam } from './trackers/steam';
 import { SteamHunters } from './trackers/steam-hunters';
 import { Tracker } from './trackers/tracker';
-import { getDocument, groupBy } from './utils/utils';
+import { getDocument, groupBy, iconExternalLink } from './utils/utils';
 
 declare global {
 	interface Window {
@@ -97,7 +97,7 @@ window.addEventListener('load', () => {
 								${tracker.name}
 							</label>
 							<a class="whiteLink" href="${tracker.getProfileURL()}" target="_blank">
-								<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+								${iconExternalLink}
 							</a>
 							${tracker.signInLink ? '<small class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">1</small>' : ''}
 							${tracker.ownProfileOnly ? '<small class="atc_help" title="Own profile only" aria-describedby="atc_own_profile_only">2</small>' : ''}
@@ -251,8 +251,7 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 				let html = `
 					<div style="margin-top: 1em;">
 						<a class="whiteLink" href="${result.tracker.getProfileURL()}" target="_blank">
-							${result.tracker.name}
-							<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+							${result.tracker.name} ${iconExternalLink}
 						</a>
 					</div>`;
 
@@ -261,7 +260,7 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 						<span style="color: #b33b32;">
 							✖
 							<a class="whiteLink" href="${result.tracker.signInLink}" target="_blank">
-								Sign in ${result.signInAs ? `as ${he.escape(result.signInAs)}` : ''} <img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+								Sign in ${result.signInAs ? `as ${he.escape(result.signInAs)}` : ''} ${iconExternalLink}
 							</a>
 						</span>`;
 				} else if (result.games.length === 0) {

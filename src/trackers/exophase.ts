@@ -1,10 +1,10 @@
 import { Game } from '../interfaces/game';
-import { getJSON } from '../utils/utils';
+import { getJSON, iconExternalLink } from '../utils/utils';
 import { Tracker } from './tracker';
 
 export class Exophase extends Tracker {
 	name = 'Exophase';
-	override signInLink = 'https://www.exophase.com/login/';
+	override signInLink = 'https://www.exophase.com/login/?utm_campaign=userscript';
 	override ownProfileOnly = true;
 
 	override getProfileURL() {
@@ -48,9 +48,8 @@ export class Exophase extends Tracker {
 
 	override getRecoverLinkHTML() {
 		return `
-			<a class="whiteLink" href="https://www.exophase.com/account/#tools" target="_blank">
-				Recover
-				<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+			<a class="whiteLink" href="https://www.exophase.com/account/?utm_campaign=userscript#tools" target="_blank">
+				Recover ${iconExternalLink}
 			</a>`;
 	}
 }

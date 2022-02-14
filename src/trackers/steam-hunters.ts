@@ -1,7 +1,7 @@
 import he from 'he';
 import { Game } from '../interfaces/game';
 import { RecoverGame } from '../interfaces/recover-game';
-import { getJSON } from '../utils/utils';
+import { getJSON, iconExternalLink } from '../utils/utils';
 import { Tracker } from './tracker';
 
 export class SteamHunters extends Tracker {
@@ -34,12 +34,11 @@ export class SteamHunters extends Tracker {
 
 	override getRecoverLinkHTML(games: RecoverGame[]) {
 		return `
-			<form method="post" action="https://steamhunters.com/profiles/${this.profileData.steamid}/recover" target="_blank">
+			<form method="post" action="https://steamhunters.com/profiles/${this.profileData.steamid}/recover?utm_campaign=userscript" target="_blank">
 				<input type="hidden" name="version" value="2.0">
 				<input type="hidden" name="apps" value="${he.escape(JSON.stringify(games))}">
 				<button type="submit" class="whiteLink">
-					Recover
-					<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+					Recover ${iconExternalLink}
 				</button>
 			</form>`;
 	}

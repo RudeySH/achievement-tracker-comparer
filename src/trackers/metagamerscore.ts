@@ -1,10 +1,10 @@
 import { Game } from '../interfaces/game';
-import { getJSON, getRedirectURL } from '../utils/utils';
+import { getJSON, getRedirectURL, iconExternalLink } from '../utils/utils';
 import { Tracker } from './tracker';
 
 export class MetaGamerScore extends Tracker {
 	name = 'MetaGamerScore';
-	override signInLink = 'https://metagamerscore.com/users/sign_in';
+	override signInLink = 'https://metagamerscore.com/users/sign_in?utm_campaign=userscript';
 
 	userID?: string;
 
@@ -28,7 +28,7 @@ export class MetaGamerScore extends Tracker {
 		let mgsGames: MetaGamerScoreGame[];
 
 		try {
-			mgsGames = await getJSON<MetaGamerScoreGame[]>(`https://metagamerscore.com/api/mygames/steam/${this.userID}`);
+			mgsGames = await getJSON<MetaGamerScoreGame[]>(`https://metagamerscore.com/api/mygames/steam/${this.userID}?utm_campaign=userscript`);
 		} catch {
 			console.error('Unable to retrieve MetaGamerScore games. Are you signed in on MetaGamerScore.com?');
 			return { games: [], signIn: true };
@@ -50,9 +50,8 @@ export class MetaGamerScore extends Tracker {
 
 	override getRecoverLinkHTML() {
 		return `
-			<a class="whiteLink" href="https://metagamerscore.com/steam/index_reconcile" target="_blank">
-				Recover
-				<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+			<a class="whiteLink" href="https://metagamerscore.com/steam/index_reconcile?utm_campaign=userscript" target="_blank">
+				Recover ${iconExternalLink}
 			</a>`;
 	}
 }

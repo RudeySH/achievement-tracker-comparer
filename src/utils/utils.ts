@@ -1,3 +1,6 @@
+export const iconExternalLink =
+	'<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif?utm_campaign=userscript" alt="" aria-hidden="true" />';
+
 export const domParser = new DOMParser();
 
 export async function getDocument(url: string, details?: Partial<GM.Request>) {

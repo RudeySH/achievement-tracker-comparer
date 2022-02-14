@@ -1,6 +1,6 @@
 import { Game } from '../interfaces/game';
 import { RecoverGame } from '../interfaces/recover-game';
-import { getDocument } from '../utils/utils';
+import { getDocument, iconExternalLink } from '../utils/utils';
 import { Tracker } from './tracker';
 
 export class Completionist extends Tracker {
@@ -66,12 +66,11 @@ export class Completionist extends Tracker {
 
 	override getRecoverLinkHTML(games: RecoverGame[]) {
 		return `
-			<form method="post" action="https://completionist.me/steam/recover/profile" target="_blank">
+			<form method="post" action="https://completionist.me/steam/recover/profile?utm_campaign=userscript" target="_blank">
 				<input type="hidden" name="app_ids" value="${games.map(game => game.appid)}">
 				<input type="hidden" name="profile_id" value="${this.profileData.steamid}">
 				<button type="submit" class="whiteLink">
-					Recover
-					<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+					Recover ${iconExternalLink}
 				</button>
 			</form>`;
 	}
