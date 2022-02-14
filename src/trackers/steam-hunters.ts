@@ -6,7 +6,6 @@ import { Tracker } from './tracker';
 
 export class SteamHunters extends Tracker {
 	name = 'Steam Hunters';
-	signInRequired = false;
 
 	override getProfileURL() {
 		return `https://steamhunters.com/profiles/${this.profileData.steamid}?utm_campaign=userscript`;

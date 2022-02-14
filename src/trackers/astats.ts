@@ -4,7 +4,6 @@ import { Tracker } from './tracker';
 
 export class AStats extends Tracker {
 	name = 'AStats';
-	signInRequired = false;
 
 	override getProfileURL() {
 		return `https://astats.astats.nl/astats/User_Info.php?steamID64=${this.profileData.steamid}&utm_campaign=userscript`;

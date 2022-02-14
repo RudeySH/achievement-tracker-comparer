@@ -93,13 +93,14 @@ window.addEventListener('load', () => {
 					${trackers.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1).map(tracker =>
 						`<div>
 							<label>
-								<input type="checkbox" name="trackerName" value="${tracker.name}" ${tracker.signInRequired && !isOwnProfile ? 'disabled' : ''} />
+								<input type="checkbox" name="trackerName" value="${tracker.name}" ${tracker.ownProfileOnly && !isOwnProfile ? 'disabled' : ''} />
 								${tracker.name}
 							</label>
 							<a class="whiteLink" href="${tracker.getProfileURL()}" target="_blank">
 								<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
 							</a>
-							${tracker.signInRequired ? '<span class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">*</span>' : ''}
+							${tracker.signInLink ? '<small class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">1</small>' : ''}
+							${tracker.ownProfileOnly ? '<small class="atc_help" title="Own profile only" aria-describedby="atc_own_profile_only">2</small>' : ''}
 						</div>`).join('')}
 					<p ${isOwnProfile ? '' : 'hidden'}>
 						<label>
@@ -107,8 +108,14 @@ window.addEventListener('load', () => {
 							Steam profile showcases (slow)
 						</label>
 					</p>
-					<p id="atc_sign_in_required">
-						* Sign-in required
+					<p>
+						<small id="atc_sign_in_required">
+							1. Sign-in required
+						</small>
+						&nbsp;
+						<small id="atc_own_profile_only">
+							2. Own profile only
+						</small>
 					</p>
 					<p>
 						<button type="button" class="btn_profile_action btn_medium" id="atc_btn" disabled>
@@ -153,8 +160,8 @@ window.addEventListener('load', () => {
 
 		try {
 			await findDifferences(trackerNames, output);
-		} catch (reason) {
-			console.error(reason);
+		} catch (e) {
+			console.error(e);
 		}
 
 		buttonSpan.textContent = 'Find Differences';
@@ -249,10 +256,18 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 						</a>
 					</div>`;
 
-				if (result.message !== undefined || result.games.length === 0) {
+				if (result.signIn) {
 					html += `
 						<span style="color: #b33b32;">
-							✖ ${result.message ?? 'No achievements found'}
+							✖
+							<a class="whiteLink" href="${result.tracker.signInLink}" target="_blank">
+								Sign in ${result.signInAs ? `as ${he.escape(result.signInAs)}` : ''} <img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+							</a>
+						</span>`;
+				} else if (result.games.length === 0) {
+					html += `
+						<span style="color: #b33b32;">
+							✖ No achievements found
 						</span>`;
 				} else {
 					const mismatchGames = sourceGames

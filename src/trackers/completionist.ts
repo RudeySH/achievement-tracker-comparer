@@ -5,7 +5,6 @@ import { Tracker } from './tracker';
 
 export class Completionist extends Tracker {
 	name = 'completionist.me';
-	signInRequired = false;
 
 	override getProfileURL() {
 		return `https://completionist.me/steam/profile/${this.profileData.steamid}?utm_campaign=userscript`;

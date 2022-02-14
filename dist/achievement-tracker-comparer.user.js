@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.1.1
+// @version     1.2.0
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -151,6 +151,8 @@ class Grouping extends Array {
 ;// CONCATENATED MODULE: ./src/trackers/tracker.ts
 class Tracker {
     constructor(profileData) {
+        this.signInLink = undefined;
+        this.ownProfileOnly = false;
         this.profileData = profileData;
     }
     validate(_game) {
@@ -165,7 +167,6 @@ class AStats extends Tracker {
     constructor() {
         super(...arguments);
         this.name = 'AStats';
-        this.signInRequired = false;
     }
     getProfileURL() {
         return `https://astats.astats.nl/astats/User_Info.php?steamID64=${this.profileData.steamid}&utm_campaign=userscript`;
@@ -211,7 +212,6 @@ class Completionist extends Tracker {
     constructor() {
         super(...arguments);
         this.name = 'completionist.me';
-        this.signInRequired = false;
     }
     getProfileURL() {
         return `https://completionist.me/steam/profile/${this.profileData.steamid}?utm_campaign=userscript`;
@@ -281,7 +281,8 @@ class Exophase extends Tracker {
     constructor() {
         super(...arguments);
         this.name = 'Exophase';
-        this.signInRequired = true;
+        this.signInLink = 'https://www.exophase.com/login/';
+        this.ownProfileOnly = true;
     }
     getProfileURL() {
         return `https://www.exophase.com/steam/id/${this.profileData.steamid}?utm_campaign=userscript`;
@@ -291,23 +292,19 @@ class Exophase extends Tracker {
     }
     async getStartedGames() {
         var _a;
-        const message = `
-			<a class="whiteLink" href="https://www.exophase.com/login/" target="_blank">
-				Sign in <img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
-			</a>`;
         let credentials;
         try {
-            credentials = await getJSON(`https://www.exophase.com/account/token?utm_campaign=userscript`);
+            credentials = await getJSON('https://www.exophase.com/account/token?utm_campaign=userscript');
         }
         catch {
-            return { games: [], message };
+            console.error('Unable to retrieve Exophase access token. Are you signed in on Exophase.com?');
+            return { games: [], signIn: true };
         }
-        const overview = await getJSON(`https://api.exophase.com/account/games?filter=steam&utm_campaign=userscript`, { headers: { 'Authorization': `Bearer ${credentials.token}` } });
+        const overview = await getJSON('https://api.exophase.com/account/games?filter=steam&utm_campaign=userscript', { headers: { 'Authorization': `Bearer ${credentials.token}` } });
         if (((_a = overview.services.find(s => s.environment === 'steam')) === null || _a === void 0 ? void 0 : _a.canonical_id) !== this.profileData.steamid) {
-            return { games: [], message: `${message} as ${this.profileData.personaname}` };
+            return { games: [], signIn: true, signInAs: this.profileData.personaname };
         }
-        const games = overview.games['steam']
-            .map(game => ({
+        const games = overview.games['steam'].map(game => ({
             appid: parseInt(game.canonical_id),
             name: game.title,
             unlocked: game.earned_awards,
@@ -335,7 +332,7 @@ class MetaGamerScore extends Tracker {
     constructor() {
         super(...arguments);
         this.name = 'MetaGamerScore';
-        this.signInRequired = false;
+        this.signInLink = 'https://metagamerscore.com/users/sign_in';
     }
     getProfileURL() {
         return `https://metagamerscore.com/steam/id/${this.profileData.steamid}?utm_campaign=userscript`;
@@ -347,66 +344,28 @@ class MetaGamerScore extends Tracker {
         return `https://metagamerscore.com/my_games?user=${this.userID}&filter=${encodeURIComponent(name)}&utm_campaign=userscript`;
     }
     async getStartedGames() {
-        const games = [];
         const profileURL = this.getProfileURL();
         const redirectURL = await getRedirectURL(profileURL);
         this.userID = new URL(redirectURL).pathname.split('/')[2];
-        const gamesURL = `https://metagamerscore.com/my_games?user=${this.userID}&utm_campaign=userscript`;
-        let details = { headers: { 'Cookie': `game_view=thumb; hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` } };
-        let doc = await this.addStartedGames(games, gamesURL, details);
-        if (games.length === 0) {
-            details = { withCredentials: false };
-            doc = await this.addStartedGames(games, gamesURL, details);
+        let mgsGames;
+        try {
+            mgsGames = await getJSON(`https://metagamerscore.com/api/mygames/steam/${this.userID}`);
         }
-        const lastPageAnchor = doc.querySelector('.last a');
-        if (lastPageAnchor !== null) {
-            const pageCount = parseInt(new URL(lastPageAnchor.href).searchParams.get('page'));
-            const iterator = this.getStartedGamesIterator(games, gamesURL, details, pageCount);
-            const pool = new PromisePool(iterator, 6);
-            await pool.start();
+        catch {
+            console.error('Unable to retrieve MetaGamerScore games. Are you signed in on MetaGamerScore.com?');
+            return { games: [], signIn: true };
         }
+        const games = mgsGames.map(game => ({
+            appid: parseInt(game.appid),
+            name: game.name,
+            unlocked: game.earned,
+            total: game.total,
+            isPerfect: game.earned >= game.total,
+            isCompleted: game.earned >= game.total ? true : undefined,
+            isCounted: game.earned >= game.total,
+            isTrusted: undefined,
+        }));
         return { games };
-    }
-    *getStartedGamesIterator(games, url, details, pageCount) {
-        for (let page = 2; page <= pageCount; page++) {
-            yield this.addStartedGames(games, `${url}&page=${page}`, details);
-        }
-    }
-    async addStartedGames(games, url, details) {
-        const doc = await getDocument(url, details);
-        const thumbs = doc.querySelectorAll('#masonry-container > div');
-        for (const thumb of thumbs) {
-            const tag = thumb.querySelector('.pfSm');
-            if (!tag.classList.contains('pfTSteam')) {
-                console.warn(tag.title);
-                continue;
-            }
-            const [unlocked, total] = [...thumb.querySelectorAll('.completiondata')]
-                .map(completiondata => parseInt(completiondata.textContent.replace('\u202F', '')));
-            if (!(unlocked > 0)) {
-                continue;
-            }
-            const isPerfect = unlocked >= total;
-            const image = thumb.querySelector('.gt_image');
-            if (image === null) {
-                continue;
-            }
-            const prefix = '/apps/';
-            const imagePath = image.src.substring(image.src.indexOf(prefix) + prefix.length);
-            const appid = parseInt(imagePath.split('/')[0]);
-            const name = thumb.querySelector('.sort_gt_tt a').textContent.trim();
-            games.push({
-                appid,
-                name,
-                unlocked,
-                total,
-                isPerfect,
-                isCompleted: isPerfect ? true : undefined,
-                isCounted: isPerfect,
-                isTrusted: undefined,
-            });
-        }
-        return doc;
     }
     getRecoverLinkHTML() {
         return `
@@ -424,7 +383,6 @@ class Steam extends Tracker {
     constructor() {
         super(...arguments);
         this.name = 'Steam';
-        this.signInRequired = false;
     }
     getProfileURL() {
         return this.profileData.url.substring(0, this.profileData.url.length - 1);
@@ -525,15 +483,15 @@ class Steam extends Tracker {
         const messages = [];
         if (game.isCounted === true) {
             if (game.isPerfect === false) {
-                messages.push(`counted but not perfect on Steam`);
+                messages.push('counted but not perfect on Steam');
             }
             if (game.isTrusted === false) {
-                messages.push(`counted but not trusted on Steam`);
+                messages.push('counted but not trusted on Steam');
             }
         }
         else {
             if (game.isPerfect === true && game.isTrusted === true) {
-                messages.push(`perfect & trusted but not counted on Steam`);
+                messages.push('perfect & trusted but not counted on Steam');
             }
         }
         return messages;
@@ -548,7 +506,6 @@ class SteamHunters extends Tracker {
     constructor() {
         super(...arguments);
         this.name = 'Steam Hunters';
-        this.signInRequired = false;
     }
     getProfileURL() {
         return `https://steamhunters.com/profiles/${this.profileData.steamid}?utm_campaign=userscript`;
@@ -660,13 +617,14 @@ window.addEventListener('load', () => {
 					</div>
 					${trackers.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1).map(tracker => `<div>
 							<label>
-								<input type="checkbox" name="trackerName" value="${tracker.name}" ${tracker.signInRequired && !isOwnProfile ? 'disabled' : ''} />
+								<input type="checkbox" name="trackerName" value="${tracker.name}" ${tracker.ownProfileOnly && !isOwnProfile ? 'disabled' : ''} />
 								${tracker.name}
 							</label>
 							<a class="whiteLink" href="${tracker.getProfileURL()}" target="_blank">
 								<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
 							</a>
-							${tracker.signInRequired ? '<span class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">*</span>' : ''}
+							${tracker.signInLink ? '<small class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">1</small>' : ''}
+							${tracker.ownProfileOnly ? '<small class="atc_help" title="Own profile only" aria-describedby="atc_own_profile_only">2</small>' : ''}
 						</div>`).join('')}
 					<p ${isOwnProfile ? '' : 'hidden'}>
 						<label>
@@ -674,8 +632,14 @@ window.addEventListener('load', () => {
 							Steam profile showcases (slow)
 						</label>
 					</p>
-					<p id="atc_sign_in_required">
-						* Sign-in required
+					<p>
+						<small id="atc_sign_in_required">
+							1. Sign-in required
+						</small>
+						&nbsp;
+						<small id="atc_own_profile_only">
+							2. Own profile only
+						</small>
 					</p>
 					<p>
 						<button type="button" class="btn_profile_action btn_medium" id="atc_btn" disabled>
@@ -713,8 +677,8 @@ window.addEventListener('load', () => {
         try {
             await findDifferences(trackerNames, output);
         }
-        catch (reason) {
-            console.error(reason);
+        catch (e) {
+            console.error(e);
         }
         buttonSpan.textContent = 'Find Differences';
         button.disabled = false;
@@ -785,7 +749,6 @@ async function findDifferences(trackerNames, output) {
     output.innerHTML = `
 		<div class="profile_comment_area">
 			${results.sort((a, b) => a.tracker.name.toUpperCase() < b.tracker.name.toUpperCase() ? -1 : 1).filter(result => result.tracker.name !== 'Steam').map(result => {
-        var _a;
         let html = `
 					<div style="margin-top: 1em;">
 						<a class="whiteLink" href="${result.tracker.getProfileURL()}" target="_blank">
@@ -793,10 +756,19 @@ async function findDifferences(trackerNames, output) {
 							<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
 						</a>
 					</div>`;
-        if (result.message !== undefined || result.games.length === 0) {
+        if (result.signIn) {
             html += `
 						<span style="color: #b33b32;">
-							✖ ${(_a = result.message) !== null && _a !== void 0 ? _a : 'No achievements found'}
+							✖
+							<a class="whiteLink" href="${result.tracker.signInLink}" target="_blank">
+								Sign in ${result.signInAs ? `as ${external_he_default().escape(result.signInAs)}` : ''} <img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
+							</a>
+						</span>`;
+        }
+        else if (result.games.length === 0) {
+            html += `
+						<span style="color: #b33b32;">
+							✖ No achievements found
 						</span>`;
         }
         else {

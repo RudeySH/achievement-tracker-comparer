@@ -4,7 +4,9 @@ import { RecoverGame } from '../interfaces/recover-game';
 
 export abstract class Tracker {
 	abstract readonly name: string;
-	abstract readonly signInRequired: boolean;
+	readonly signInLink: string | undefined = undefined;
+	readonly ownProfileOnly: boolean = false;
+
 	readonly profileData: ProfileData;
 
 	constructor(profileData: ProfileData) {
@@ -15,7 +17,7 @@ export abstract class Tracker {
 
 	abstract getGameURL(appid: number, name: string | undefined): string | undefined;
 
-	abstract getStartedGames(appids?: number[]): Promise<{ message?: string, games: Game[] }>;
+	abstract getStartedGames(appids?: number[]): Promise<{ games: Game[], signIn?: boolean, signInAs?: string }>;
 
 	abstract getRecoverLinkHTML(games: RecoverGame[]): string | undefined;
 

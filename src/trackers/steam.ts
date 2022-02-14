@@ -4,7 +4,6 @@ import { Tracker } from './tracker';
 
 export class Steam extends Tracker {
 	name = 'Steam';
-	signInRequired = false;
 
 	override getProfileURL() {
 		return this.profileData.url.substring(0, this.profileData.url.length - 1);
@@ -135,14 +134,14 @@ export class Steam extends Tracker {
 
 		if (game.isCounted === true) {
 			if (game.isPerfect === false) {
-				messages.push(`counted but not perfect on Steam`);
+				messages.push('counted but not perfect on Steam');
 			}
 			if (game.isTrusted === false) {
-				messages.push(`counted but not trusted on Steam`);
+				messages.push('counted but not trusted on Steam');
 			}
 		} else {
 			if (game.isPerfect === true && game.isTrusted === true) {
-				messages.push(`perfect & trusted but not counted on Steam`);
+				messages.push('perfect & trusted but not counted on Steam');
 			}
 		}
 

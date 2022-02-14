@@ -1,10 +1,11 @@
 import { Game } from '../interfaces/game';
-import { getDocument, getRedirectURL } from '../utils/utils';
+import { getJSON, getRedirectURL } from '../utils/utils';
 import { Tracker } from './tracker';
 
 export class MetaGamerScore extends Tracker {
 	name = 'MetaGamerScore';
-	signInRequired = false;
+	override signInLink = 'https://metagamerscore.com/users/sign_in';
+
 	userID?: string;
 
 	override getProfileURL() {
@@ -20,84 +21,31 @@ export class MetaGamerScore extends Tracker {
 	}
 
 	override async getStartedGames() {
-		const games: Game[] = [];
-
 		const profileURL = this.getProfileURL();
 		const redirectURL = await getRedirectURL(profileURL);
 		this.userID = new URL(redirectURL).pathname.split('/')[2];
 
-		const gamesURL = `https://metagamerscore.com/my_games?user=${this.userID}&utm_campaign=userscript`;
+		let mgsGames: MetaGamerScoreGame[];
 
-		let details = { headers: { 'Cookie': `game_view=thumb; hide_pfs=[1,3,4,5,6,7,8,9,10,11,12,13,14]` } } as Partial<GM.Request>;
-		let doc = await this.addStartedGames(games, gamesURL, details);
-
-		if (games.length === 0) {
-			details = { withCredentials: false } as Partial<GM.Request>;
-			doc = await this.addStartedGames(games, gamesURL, details);
+		try {
+			mgsGames = await getJSON<MetaGamerScoreGame[]>(`https://metagamerscore.com/api/mygames/steam/${this.userID}`);
+		} catch {
+			console.error('Unable to retrieve MetaGamerScore games. Are you signed in on MetaGamerScore.com?');
+			return { games: [], signIn: true };
 		}
 
-		const lastPageAnchor = doc.querySelector<HTMLAnchorElement>('.last a');
-
-		if (lastPageAnchor !== null) {
-			const pageCount = parseInt(new URL(lastPageAnchor.href).searchParams.get('page')!);
-			const iterator = this.getStartedGamesIterator(games, gamesURL, details, pageCount);
-			const pool = new PromisePool(iterator, 6);
-			await pool.start();
-		}
+		const games = mgsGames.map<Game>(game => ({
+			appid: parseInt(game.appid),
+			name: game.name,
+			unlocked: game.earned,
+			total: game.total,
+			isPerfect: game.earned >= game.total,
+			isCompleted: game.earned >= game.total ? true : undefined,
+			isCounted: game.earned >= game.total,
+			isTrusted: undefined,
+		}));
 
 		return { games };
-	}
-
-	* getStartedGamesIterator(games: Game[], url: string, details: Partial<GM.Request>, pageCount: number) {
-		for (let page = 2; page <= pageCount; page++) {
-			yield this.addStartedGames(games, `${url}&page=${page}`, details);
-		}
-	}
-
-	async addStartedGames(games: Game[], url: string, details: Partial<GM.Request>) {
-		const doc = await getDocument(url, details);
-		const thumbs = doc.querySelectorAll('#masonry-container > div');
-
-		for (const thumb of thumbs) {
-			const tag = thumb.querySelector<HTMLElement>('.pfSm')!;
-			if (!tag.classList.contains('pfTSteam')) {
-				console.warn(tag.title);
-				continue;
-			}
-
-			const [unlocked, total] = [...thumb.querySelectorAll('.completiondata')]
-				.map(completiondata => parseInt(completiondata.textContent!.replace('\u202F', '')));
-
-			if (!(unlocked > 0)) {
-				continue;
-			}
-
-			const isPerfect = unlocked >= total;
-			const image = thumb.querySelector<HTMLImageElement>('.gt_image');
-
-			if (image === null) {
-				continue;
-			}
-
-			const prefix = '/apps/';
-			const imagePath = image.src.substring(image.src.indexOf(prefix) + prefix.length);
-
-			const appid = parseInt(imagePath.split('/')[0]);
-			const name = thumb.querySelector('.sort_gt_tt a')!.textContent!.trim();
-
-			games.push({
-				appid,
-				name,
-				unlocked,
-				total,
-				isPerfect,
-				isCompleted: isPerfect ? true : undefined,
-				isCounted: isPerfect,
-				isTrusted: undefined,
-			});
-		}
-
-		return doc;
 	}
 
 	override getRecoverLinkHTML() {
@@ -107,4 +55,11 @@ export class MetaGamerScore extends Tracker {
 				<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
 			</a>`;
 	}
+}
+
+interface MetaGamerScoreGame {
+	name: string;
+	appid: string;
+	earned: number;
+	total: number;
 }

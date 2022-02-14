@@ -4,7 +4,8 @@ import { Tracker } from './tracker';
 
 export class Exophase extends Tracker {
 	name = 'Exophase';
-	signInRequired = true;
+	override signInLink = 'https://www.exophase.com/login/';
+	override ownProfileOnly = true;
 
 	override getProfileURL() {
 		return `https://www.exophase.com/steam/id/${this.profileData.steamid}?utm_campaign=userscript`;
@@ -15,37 +16,32 @@ export class Exophase extends Tracker {
 	}
 
 	override async getStartedGames() {
-		const message = `
-			<a class="whiteLink" href="https://www.exophase.com/login/" target="_blank">
-				Sign in <img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif" />
-			</a>`
-
 		let credentials: Credentials;
 		try {
-			credentials = await getJSON<Credentials>(`https://www.exophase.com/account/token?utm_campaign=userscript`);
+			credentials = await getJSON<Credentials>('https://www.exophase.com/account/token?utm_campaign=userscript');
 		} catch {
-			return { games: [], message };
+			console.error('Unable to retrieve Exophase access token. Are you signed in on Exophase.com?');
+			return { games: [], signIn: true };
 		}
 
 		const overview = await getJSON<Overview>(
-			`https://api.exophase.com/account/games?filter=steam&utm_campaign=userscript`,
+			'https://api.exophase.com/account/games?filter=steam&utm_campaign=userscript',
 			{ headers: { 'Authorization': `Bearer ${credentials.token}` } });
 
 		if (overview.services.find(s => s.environment === 'steam')?.canonical_id !== this.profileData.steamid) {
-			return { games: [], message: `${message} as ${this.profileData.personaname}` };
+			return { games: [], signIn: true, signInAs: this.profileData.personaname };
 		}
 
-		const games = overview.games['steam']
-			.map<Game>(game => ({
-				appid: parseInt(game.canonical_id),
-				name: game.title,
-				unlocked: game.earned_awards,
-				total: game.total_awards,
-				isPerfect: game.earned_awards >= game.total_awards,
-				isCompleted: game.earned_awards >= game.total_awards ? true : undefined,
-				isCounted: game.earned_awards >= game.total_awards,
-				isTrusted: undefined,
-			}));
+		const games = overview.games['steam'].map<Game>(game => ({
+			appid: parseInt(game.canonical_id),
+			name: game.title,
+			unlocked: game.earned_awards,
+			total: game.total_awards,
+			isPerfect: game.earned_awards >= game.total_awards,
+			isCompleted: game.earned_awards >= game.total_awards ? true : undefined,
+			isCounted: game.earned_awards >= game.total_awards,
+			isTrusted: undefined,
+		}));
 
 		return { games };
 	}
