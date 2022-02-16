@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.2.1
+// @version     1.2.2
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -354,16 +354,20 @@ class MetaGamerScore extends Tracker {
             console.error('Unable to retrieve MetaGamerScore games. Are you signed in on MetaGamerScore.com?');
             return { games: [], signIn: true };
         }
-        const games = mgsGames.map(game => ({
-            appid: parseInt(game.appid),
-            name: game.name,
-            unlocked: game.earned,
-            total: game.total,
-            isPerfect: game.earned >= game.total,
-            isCompleted: game.earned >= game.total ? true : undefined,
-            isCounted: game.earned >= game.total,
-            isTrusted: undefined,
-        }));
+        const games = mgsGames.map(game => {
+            const unlocked = game.earned + game.earnedUnobtainable;
+            const total = game.total + game.totalUnobtainable;
+            return {
+                appid: parseInt(game.appid),
+                name: game.name,
+                unlocked,
+                total,
+                isPerfect: unlocked >= total,
+                isCompleted: game.earned >= game.total ? true : undefined,
+                isCounted: game.earned >= game.total,
+                isTrusted: undefined,
+            };
+        });
         return { games };
     }
     getRecoverLinkHTML() {

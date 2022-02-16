@@ -34,16 +34,21 @@ export class MetaGamerScore extends Tracker {
 			return { games: [], signIn: true };
 		}
 
-		const games = mgsGames.map<Game>(game => ({
-			appid: parseInt(game.appid),
-			name: game.name,
-			unlocked: game.earned,
-			total: game.total,
-			isPerfect: game.earned >= game.total,
-			isCompleted: game.earned >= game.total ? true : undefined,
-			isCounted: game.earned >= game.total,
-			isTrusted: undefined,
-		}));
+		const games = mgsGames.map<Game>(game => {
+			const unlocked = game.earned + game.earnedUnobtainable;
+			const total = game.total + game.totalUnobtainable;
+
+			return {
+				appid: parseInt(game.appid),
+				name: game.name,
+				unlocked,
+				total,
+				isPerfect: unlocked >= total,
+				isCompleted: game.earned >= game.total ? true : undefined,
+				isCounted: game.earned >= game.total,
+				isTrusted: undefined,
+			};
+		});
 
 		return { games };
 	}
@@ -57,8 +62,11 @@ export class MetaGamerScore extends Tracker {
 }
 
 interface MetaGamerScoreGame {
+	mgs_id: number,
 	name: string;
 	appid: string;
 	earned: number;
 	total: number;
+	earnedUnobtainable: number;
+	totalUnobtainable: number;
 }
