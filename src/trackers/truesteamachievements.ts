@@ -74,7 +74,7 @@ export class TrueSteamAchievements extends Tracker {
 			await pool.start();
 		}
 
-		return { games };
+		return { games: games.filter(game => game.appid !== 0) };
 	}
 
 	* setAppIdsIterator(games: Game[]) {
@@ -93,9 +93,14 @@ export class TrueSteamAchievements extends Tracker {
 
 	* setAppIdsSlowIterator(games: Game[]) {
 		for (const game of games) {
-			yield getHTML(this.getGameURL(game))
+			const url = this.getGameURL(game);
+
+			yield getHTML(url)
 				.then(response => {
-					game.appid = parseInt(/app\/(\d+)/.exec(response)![1]);
+					const match = /app\/(\d+)/.exec(response);
+					if (match !== null) {
+						game.appid = parseInt(match[1]);
+					}
 				});
 		}
 	}
