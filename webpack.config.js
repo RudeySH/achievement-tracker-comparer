@@ -46,6 +46,7 @@ var config = {
           'exophase.com',
           'metagamerscore.com',
           'steamhunters.com',
+          'truesteamachievements.com',
         ],
         require: [
           'https://cdnjs.cloudflare.com/ajax/libs/es6-promise-pool/2.5.0/es6-promise-pool.min.js',

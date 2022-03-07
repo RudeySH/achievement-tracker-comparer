@@ -113,7 +113,7 @@ window.addEventListener('load', async () => {
 							${tracker.signInLink ? '<small class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">1</small>' : ''}
 							${tracker.ownProfileOnly ? '<small class="atc_help" title="Own profile only" aria-describedby="atc_own_profile_only">2</small>' : ''}
 						</div>`).join('')}
-					<input type="text" name="tsaProfileUrl" id="atc_tsa_profile_url" placeholder="Enter your TSA profile URL..." required hidden
+					<input type="text" name="tsaProfileUrl" id="atc_tsa_profile_url" placeholder="Enter the TSA profile URL..." required hidden
 						pattern="[^/?#]+|https://truesteamachievements\\.com/gamer/[^/?#]+" />
 					<p ${isOwnProfile ? '' : 'hidden'}>
 						<label>
