@@ -11,8 +11,8 @@ export class Exophase extends Tracker {
 		return `https://www.exophase.com/steam/id/${this.profileData.steamid}?utm_campaign=userscript`;
 	}
 
-	override getGameURL(appid: number) {
-		return `https://www.exophase.com/steam/game/id/${appid}/stats/${this.profileData.steamid}?utm_campaign=userscript`;
+	override getGameURL(game: Game) {
+		return `https://www.exophase.com/steam/game/id/${game.appid}/stats/${this.profileData.steamid}?utm_campaign=userscript`;
 	}
 
 	override async getStartedGames() {
@@ -20,7 +20,6 @@ export class Exophase extends Tracker {
 		try {
 			credentials = await getJSON<Credentials>('https://www.exophase.com/account/token?utm_campaign=userscript');
 		} catch {
-			console.error('Unable to retrieve Exophase access token. Are you signed in on Exophase.com?');
 			return { games: [], signIn: true };
 		}
 

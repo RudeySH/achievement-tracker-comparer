@@ -9,11 +9,11 @@ export class Steam extends Tracker {
 		return this.profileData.url.substring(0, this.profileData.url.length - 1);
 	}
 
-	override getGameURL(appid: number) {
-		return `${this.getProfileURL()}/stats/${appid}?tab=achievements`;
+	override getGameURL(game: Game) {
+		return `${this.getProfileURL()}/stats/${game.appid}?tab=achievements`;
 	}
 
-	override async getStartedGames(appids: number[]) {
+	override async getStartedGames(_formData: FormData, appids: number[]) {
 		const response = await fetch(`${this.getProfileURL()}/edit/showcases`, { credentials: 'same-origin' });
 		const doc = domParser.parseFromString(await response.text(), 'text/html');
 		const achievementShowcaseGames: AchievementShowcaseGame[] = JSON.parse(doc.getElementById('showcase_preview_17')!.innerHTML.match(/g_rgAchievementShowcaseGamesWithAchievements = (.*);/)![1]);

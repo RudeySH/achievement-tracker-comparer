@@ -10,8 +10,8 @@ export class Completionist extends Tracker {
 		return `https://completionist.me/steam/profile/${this.profileData.steamid}?utm_campaign=userscript`;
 	}
 
-	override getGameURL(appid: number) {
-		return `https://completionist.me/steam/profile/${this.profileData.steamid}/app/${appid}?utm_campaign=userscript`;
+	override getGameURL(game: Game) {
+		return `https://completionist.me/steam/profile/${this.profileData.steamid}/app/${game.appid}?utm_campaign=userscript`;
 	}
 
 	override async getStartedGames() {
@@ -44,7 +44,7 @@ export class Completionist extends Tracker {
 		for (const row of rows) {
 			const nameCell = row.cells[1];
 			const anchor = nameCell.querySelector('a')!;
-			const counts = row.cells[4].textContent!.split('/').map(s => parseInt(s.replace(',', '')));
+			const counts = row.cells[4].textContent!.split('/').map(s => parseInt(s.replace(/,/g, '')));
 			const unlocked = counts[0];
 			const total = counts[1] ?? unlocked;
 			const isPerfect = unlocked >= total;

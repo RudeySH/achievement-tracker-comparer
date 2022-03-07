@@ -1,5 +1,5 @@
 import { Game } from '../interfaces/game';
-import { getJSON, getRedirectURL, iconExternalLink } from '../utils/utils';
+import { getJSON, getRedirectURL, iconExternalLink, trim } from '../utils/utils';
 import { Tracker } from './tracker';
 
 export class MetaGamerScore extends Tracker {
@@ -12,12 +12,18 @@ export class MetaGamerScore extends Tracker {
 		return `https://metagamerscore.com/steam/id/${this.profileData.steamid}?utm_campaign=userscript`;
 	}
 
-	override getGameURL(_appid: number, name: string | undefined) {
-		if (this.userID === undefined || name === undefined) {
+	override getGameURL(game: Game) {
+		if (!game.name) {
 			return undefined;
 		}
 
-		return `https://metagamerscore.com/my_games?user=${this.userID}&filter=${encodeURIComponent(name)}&utm_campaign=userscript`;
+		if (!game.mgsId) {
+			return `https://metagamerscore.com/my_games?user=${this.userID}&filter=${encodeURIComponent(game.name)}&utm_campaign=userscript`;
+		}
+
+		let urlFriendlyName = trim(game.name.toLowerCase().replace(/\W+/g, '-'), '-');
+
+		return `https://metagamerscore.com/game/${game.mgsId}-${urlFriendlyName}?user=${this.userID}&utm_campaign=userscript`;
 	}
 
 	override async getStartedGames() {
@@ -25,12 +31,17 @@ export class MetaGamerScore extends Tracker {
 		const redirectURL = await getRedirectURL(profileURL);
 		this.userID = new URL(redirectURL).pathname.split('/')[2];
 
-		let mgsGames: MetaGamerScoreGame[];
+		let mgsGames: MgsGame[];
 
 		try {
-			mgsGames = await getJSON<MetaGamerScoreGame[]>(`https://metagamerscore.com/api/mygames/steam/${this.userID}?utm_campaign=userscript`);
+			const response = await getJSON<MgsGame[] | MgsError>(`https://metagamerscore.com/api/mygames/steam/${this.userID}?utm_campaign=userscript`);
+
+			if (Array.isArray(response)) {
+				mgsGames = response;
+			} else {
+				return { games: [], error: response.error };
+			}
 		} catch {
-			console.error('Unable to retrieve MetaGamerScore games. Are you signed in on MetaGamerScore.com?');
 			return { games: [], signIn: true };
 		}
 
@@ -40,6 +51,7 @@ export class MetaGamerScore extends Tracker {
 
 			return {
 				appid: parseInt(game.appid),
+				mgsId: game.mgs_id,
 				name: game.name,
 				unlocked,
 				total,
@@ -61,7 +73,7 @@ export class MetaGamerScore extends Tracker {
 	}
 }
 
-interface MetaGamerScoreGame {
+interface MgsGame {
 	mgs_id: number,
 	name: string;
 	appid: string;
@@ -69,4 +81,9 @@ interface MetaGamerScoreGame {
 	total: number;
 	earnedUnobtainable: number;
 	totalUnobtainable: number;
+}
+
+interface MgsError {
+	error: string;
+	code: number;
 }

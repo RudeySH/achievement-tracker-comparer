@@ -1,8 +1,11 @@
 export interface Game {
 	appid: number;
+	mgsId?: number;
+	tsaGameId?: number;
+	tsaUrlName?: string;
+	name: string | undefined;
 	unlocked: number;
 	total: number | undefined;
-	name: string | undefined;
 	isPerfect: boolean | undefined;
 	isCompleted: boolean | undefined;
 	isCounted: boolean;

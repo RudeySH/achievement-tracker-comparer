@@ -1,13 +1,15 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.2.2
+// @version     1.3.0
 // @author      Rudey
-// @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
+// @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters, TrueSteamAchievements and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
 // @supportURL  https://github.com/RudeySH/achievement-tracker-comparer/issues
 // @include     /^https://steamcommunity\.com/id/\w{3,32}/*$/
 // @include     /^https://steamcommunity\.com/profiles/\d{17}/*$/
 // @namespace   https://github.com/RudeySH/achievement-tracker-comparer
+// @grant       GM.getValue
+// @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 // @connect     astats.nl
 // @connect     completionist.me
@@ -65,13 +67,17 @@ var external_he_default = /*#__PURE__*/__webpack_require__.n(external_he_namespa
 const iconExternalLink = '<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif?utm_campaign=userscript" alt="" aria-hidden="true" />';
 const domParser = new DOMParser();
 async function getDocument(url, details) {
+    const html = await getHTML(url, details);
+    return domParser.parseFromString(html, 'text/html');
+}
+async function getHTML(url, details) {
     const data = await xmlHttpRequest({
         method: 'GET',
         overrideMimeType: 'text/html',
         url,
         ...details,
     });
-    return domParser.parseFromString(data.responseText, 'text/html');
+    return data.responseText;
 }
 async function getJSON(url, details) {
     const data = await xmlHttpRequest({
@@ -148,6 +154,22 @@ class Grouping extends Array {
         this.key = key;
     }
 }
+function merge(source, target) {
+    if (!target) {
+        return source;
+    }
+    const source2 = Object.fromEntries(Object.entries(source).filter(([_, v]) => v !== undefined));
+    return Object.assign({ ...target }, source2);
+}
+function trim(string, trim) {
+    if (string.startsWith(trim)) {
+        string = string.substring(trim.length);
+    }
+    if (string.endsWith(trim)) {
+        string = string.substring(0, string.length - trim.length);
+    }
+    return string;
+}
 
 ;// CONCATENATED MODULE: ./src/trackers/tracker.ts
 class Tracker {
@@ -172,8 +194,8 @@ class AStats extends Tracker {
     getProfileURL() {
         return `https://astats.astats.nl/astats/User_Info.php?steamID64=${this.profileData.steamid}&utm_campaign=userscript`;
     }
-    getGameURL(appid) {
-        return `https://astats.astats.nl/astats/Steam_Game_Info.php?AppID=${appid}&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`;
+    getGameURL(game) {
+        return `https://astats.astats.nl/astats/Steam_Game_Info.php?AppID=${game.appid}&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`;
     }
     async getStartedGames() {
         const games = [];
@@ -217,8 +239,8 @@ class Completionist extends Tracker {
     getProfileURL() {
         return `https://completionist.me/steam/profile/${this.profileData.steamid}?utm_campaign=userscript`;
     }
-    getGameURL(appid) {
-        return `https://completionist.me/steam/profile/${this.profileData.steamid}/app/${appid}?utm_campaign=userscript`;
+    getGameURL(game) {
+        return `https://completionist.me/steam/profile/${this.profileData.steamid}/app/${game.appid}?utm_campaign=userscript`;
     }
     async getStartedGames() {
         const games = [];
@@ -245,7 +267,7 @@ class Completionist extends Tracker {
         for (const row of rows) {
             const nameCell = row.cells[1];
             const anchor = nameCell.querySelector('a');
-            const counts = row.cells[4].textContent.split('/').map(s => parseInt(s.replace(',', '')));
+            const counts = row.cells[4].textContent.split('/').map(s => parseInt(s.replace(/,/g, '')));
             const unlocked = counts[0];
             const total = (_a = counts[1]) !== null && _a !== void 0 ? _a : unlocked;
             const isPerfect = unlocked >= total;
@@ -287,8 +309,8 @@ class Exophase extends Tracker {
     getProfileURL() {
         return `https://www.exophase.com/steam/id/${this.profileData.steamid}?utm_campaign=userscript`;
     }
-    getGameURL(appid) {
-        return `https://www.exophase.com/steam/game/id/${appid}/stats/${this.profileData.steamid}?utm_campaign=userscript`;
+    getGameURL(game) {
+        return `https://www.exophase.com/steam/game/id/${game.appid}/stats/${this.profileData.steamid}?utm_campaign=userscript`;
     }
     async getStartedGames() {
         var _a;
@@ -297,7 +319,6 @@ class Exophase extends Tracker {
             credentials = await getJSON('https://www.exophase.com/account/token?utm_campaign=userscript');
         }
         catch {
-            console.error('Unable to retrieve Exophase access token. Are you signed in on Exophase.com?');
             return { games: [], signIn: true };
         }
         const overview = await getJSON('https://api.exophase.com/account/games?filter=steam&utm_campaign=userscript', { headers: { 'Authorization': `Bearer ${credentials.token}` } });
@@ -336,11 +357,15 @@ class MetaGamerScore extends Tracker {
     getProfileURL() {
         return `https://metagamerscore.com/steam/id/${this.profileData.steamid}?utm_campaign=userscript`;
     }
-    getGameURL(_appid, name) {
-        if (this.userID === undefined || name === undefined) {
+    getGameURL(game) {
+        if (!game.name) {
             return undefined;
         }
-        return `https://metagamerscore.com/my_games?user=${this.userID}&filter=${encodeURIComponent(name)}&utm_campaign=userscript`;
+        if (!game.mgsId) {
+            return `https://metagamerscore.com/my_games?user=${this.userID}&filter=${encodeURIComponent(game.name)}&utm_campaign=userscript`;
+        }
+        let urlFriendlyName = trim(game.name.toLowerCase().replace(/\W+/g, '-'), '-');
+        return `https://metagamerscore.com/game/${game.mgsId}-${urlFriendlyName}?user=${this.userID}&utm_campaign=userscript`;
     }
     async getStartedGames() {
         const profileURL = this.getProfileURL();
@@ -348,10 +373,15 @@ class MetaGamerScore extends Tracker {
         this.userID = new URL(redirectURL).pathname.split('/')[2];
         let mgsGames;
         try {
-            mgsGames = await getJSON(`https://metagamerscore.com/api/mygames/steam/${this.userID}?utm_campaign=userscript`);
+            const response = await getJSON(`https://metagamerscore.com/api/mygames/steam/${this.userID}?utm_campaign=userscript`);
+            if (Array.isArray(response)) {
+                mgsGames = response;
+            }
+            else {
+                return { games: [], error: response.error };
+            }
         }
         catch {
-            console.error('Unable to retrieve MetaGamerScore games. Are you signed in on MetaGamerScore.com?');
             return { games: [], signIn: true };
         }
         const games = mgsGames.map(game => {
@@ -359,6 +389,7 @@ class MetaGamerScore extends Tracker {
             const total = game.total + game.totalUnobtainable;
             return {
                 appid: parseInt(game.appid),
+                mgsId: game.mgs_id,
                 name: game.name,
                 unlocked,
                 total,
@@ -389,10 +420,10 @@ class Steam extends Tracker {
     getProfileURL() {
         return this.profileData.url.substring(0, this.profileData.url.length - 1);
     }
-    getGameURL(appid) {
-        return `${this.getProfileURL()}/stats/${appid}?tab=achievements`;
+    getGameURL(game) {
+        return `${this.getProfileURL()}/stats/${game.appid}?tab=achievements`;
     }
-    async getStartedGames(appids) {
+    async getStartedGames(_formData, appids) {
         const response = await fetch(`${this.getProfileURL()}/edit/showcases`, { credentials: 'same-origin' });
         const doc = domParser.parseFromString(await response.text(), 'text/html');
         const achievementShowcaseGames = JSON.parse(doc.getElementById('showcase_preview_17').innerHTML.match(/g_rgAchievementShowcaseGamesWithAchievements = (.*);/)[1]);
@@ -512,8 +543,8 @@ class SteamHunters extends Tracker {
     getProfileURL() {
         return `https://steamhunters.com/profiles/${this.profileData.steamid}?utm_campaign=userscript`;
     }
-    getGameURL(appid) {
-        return `https://steamhunters.com/profiles/${this.profileData.steamid}/stats/${appid}?utm_campaign=userscript`;
+    getGameURL(game) {
+        return `https://steamhunters.com/profiles/${this.profileData.steamid}/stats/${game.appid}?utm_campaign=userscript`;
     }
     async getStartedGames() {
         const licenses = await getJSON(`https://steamhunters.com/api/steam-users/${this.profileData.steamid}/licenses?state=started&utm_campaign=userscript`);
@@ -541,8 +572,98 @@ class SteamHunters extends Tracker {
     }
 }
 
+;// CONCATENATED MODULE: ./src/trackers/truesteamachievements.ts
+
+
+class TrueSteamAchievements extends Tracker {
+    constructor() {
+        super(...arguments);
+        this.name = 'TrueSteamAchievements';
+    }
+    getProfileURL() {
+        return undefined;
+    }
+    getGameURL(game) {
+        if (!game.tsaUrlName) {
+            return `https://truesteamachievements.com/steamgame/${game.appid}?utm_campaign=userscript`;
+        }
+        return `https://truesteamachievements.com/game/${game.tsaUrlName}/achievements?gamerid=${this.gamerID}&utm_campaign=userscript`;
+    }
+    async getStartedGames(formData) {
+        const games = [];
+        const prefix = 'https://truesteamachievements.com/gamer/';
+        let url = `${formData.get('tsaProfileUrl')}/games?utm_campaign=userscript`;
+        if (!url.startsWith(prefix)) {
+            url = prefix + url;
+        }
+        const html = await getHTML(url);
+        this.gamerID = /gamerid=(\d+)/.exec(html)[1];
+        const gamesList = document.createElement('div');
+        const params = `oGamerGamesList|oGamerGamesList_ItemsPerPage=99999999&txtGamerID=${this.gamerID}`;
+        const gamesListURL = `${url}&executeformfunction&function=AjaxList&params=${encodeURIComponent(params)}`;
+        gamesList.innerHTML = await getHTML(gamesListURL);
+        const rows = gamesList.querySelectorAll('tr');
+        for (var i = 1; i < rows.length - 1; i++) {
+            const row = rows[i];
+            const anchor = row.querySelector('a[href*="gameid="]');
+            const counts = row.cells[2].textContent.split(' of ').map(s => parseInt(s.replace(/,/g, '')));
+            ;
+            const unlocked = counts[0];
+            const total = counts[1];
+            const isPerfect = unlocked >= total;
+            games.push({
+                appid: 0,
+                tsaGameId: parseInt(new URL(anchor.href).searchParams.get('gameid')),
+                tsaUrlName: /game\/([^\/]+)/.exec(row.querySelector('a').href)[1],
+                name: row.cells[1].textContent,
+                unlocked,
+                total,
+                isPerfect,
+                isCompleted: isPerfect ? true : undefined,
+                isCounted: isPerfect,
+                isTrusted: undefined,
+            });
+        }
+        const iterator = this.setAppIdsIterator(games);
+        const pool = new PromisePool(iterator, 6);
+        await pool.start();
+        const unsetGames = games.filter(game => game.appid === 0);
+        if (unsetGames.length !== 0) {
+            const iterator = this.setAppIdsSlowIterator(unsetGames);
+            const pool = new PromisePool(iterator, 6);
+            await pool.start();
+        }
+        return { games };
+    }
+    *setAppIdsIterator(games) {
+        for (let i = 0; i < games.length; i += 100) {
+            const batch = games.slice(i, i + 100);
+            const url = `https://steamhunters.com/api/apps/app-ids?${batch.map(game => `tsaGameIds=${game.tsaGameId}`).join('&')}&utm_campaign=userscript`;
+            yield getJSON(url)
+                .then(response => {
+                var _a;
+                for (const game of batch) {
+                    game.appid = (_a = response[game.tsaGameId]) !== null && _a !== void 0 ? _a : 0;
+                }
+            });
+        }
+    }
+    *setAppIdsSlowIterator(games) {
+        for (const game of games) {
+            yield getHTML(this.getGameURL(game))
+                .then(response => {
+                game.appid = parseInt(/app\/(\d+)/.exec(response)[1]);
+            });
+        }
+    }
+    getRecoverLinkHTML(_games) {
+        return undefined;
+    }
+}
+
 ;// CONCATENATED MODULE: ./src/index.ts
 var _a;
+
 
 
 
@@ -559,8 +680,10 @@ const trackers = [
     new AStats(profileData),
     new Exophase(profileData),
     new MetaGamerScore(profileData),
+    new TrueSteamAchievements(profileData),
 ];
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
+    var _a;
     const container = document.querySelector('.profile_rightcol');
     if (container === null) {
         return;
@@ -587,6 +710,14 @@ window.addEventListener('load', () => {
 
 		.atc input[type="checkbox"] {
 			vertical-align: top;
+		}
+
+		.atc #atc_tsa_profile_url {
+			box-shadow: 1px 1px 1px rgb(255 255 255 / 10%);
+			font-size: x-small;
+			margin-top: 3px;
+			padding: 3px;
+			width: calc(100% - 6px);
 		}
 
 		.atc .atc_help {
@@ -621,12 +752,15 @@ window.addEventListener('load', () => {
 								<input type="checkbox" name="trackerName" value="${tracker.name}" ${tracker.ownProfileOnly && !isOwnProfile ? 'disabled' : ''} />
 								${tracker.name}
 							</label>
-							<a class="whiteLink" href="${tracker.getProfileURL()}" target="_blank">
-								${iconExternalLink}
-							</a>
+							${tracker.getProfileURL() === undefined ? '' :
+        `<a class="whiteLink" href="${tracker.getProfileURL()}" target="_blank">
+									${iconExternalLink}
+								</a>`}
 							${tracker.signInLink ? '<small class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">1</small>' : ''}
 							${tracker.ownProfileOnly ? '<small class="atc_help" title="Own profile only" aria-describedby="atc_own_profile_only">2</small>' : ''}
 						</div>`).join('')}
+					<input type="text" name="tsaProfileUrl" id="atc_tsa_profile_url" placeholder="Enter your TSA profile URL..." required hidden
+						pattern="[^/?#]+|https://truesteamachievements\\.com/gamer/[^/?#]+" />
 					<p ${isOwnProfile ? '' : 'hidden'}>
 						<label>
 							<input type="checkbox" name="trackerName" value="Steam" />
@@ -655,20 +789,38 @@ window.addEventListener('load', () => {
 		</div>`;
     const node = document.importNode(template.content, true);
     const form = node.querySelector('form');
-    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+    const checkboxes = [...form.querySelectorAll('input[type="checkbox"]')];
     const button = form.querySelector('button#atc_btn');
     const buttonSpan = button.querySelector('span');
     const counter = form.querySelector('#atc_counter');
     const output = node.querySelector('#atc_output');
-    form.addEventListener('change', () => {
+    const tsaCheckbox = checkboxes.find(x => x.value === 'TrueSteamAchievements');
+    const tsaProfileUrlInput = form.querySelector('#atc_tsa_profile_url');
+    const tsaProfileUrlKey = profileData.steamid + '/tsaProfileUrl';
+    tsaCheckbox.addEventListener('input', () => {
+        if (tsaCheckbox.checked) {
+            tsaProfileUrlInput.hidden = false;
+        }
+        else {
+            tsaProfileUrlInput.hidden = true;
+        }
+    });
+    const updateForm = async () => {
         const formData = new FormData(form);
         const trackerNames = formData.getAll('trackerName');
-        button.disabled = trackerNames.length < 2;
+        button.disabled = trackerNames.length < 2 || !tsaProfileUrlInput.hidden && !tsaProfileUrlInput.validity.valid;
         counter.textContent = trackerNames.length.toString();
-    });
+        try {
+            await GM.setValue(tsaProfileUrlKey, tsaProfileUrlInput.value);
+        }
+        catch (e) {
+            console.error(e);
+        }
+    };
+    form.addEventListener('change', updateForm);
+    form.addEventListener('input', updateForm);
     button.addEventListener('click', async () => {
         const formData = new FormData(form);
-        const trackerNames = formData.getAll('trackerName');
         button.disabled = true;
         buttonSpan.textContent = 'Loading...';
         for (const checkbox of checkboxes) {
@@ -676,7 +828,7 @@ window.addEventListener('load', () => {
             checkbox.disabled = true;
         }
         try {
-            await findDifferences(trackerNames, output);
+            await findDifferences(formData, output);
         }
         catch (e) {
             console.error(e);
@@ -688,21 +840,28 @@ window.addEventListener('load', () => {
         }
     });
     container.appendChild(node);
+    try {
+        tsaProfileUrlInput.value = (_a = await GM.getValue(tsaProfileUrlKey)) !== null && _a !== void 0 ? _a : '';
+    }
+    catch (e) {
+        console.error(e);
+    }
 });
-async function findDifferences(trackerNames, output) {
+async function findDifferences(formData, output) {
     var _a;
     output.innerHTML = '';
+    const trackerNames = formData.getAll('trackerName');
     const results = await Promise.all(trackers
         .filter(tracker => trackerNames.includes(tracker.name))
-        .map(async (tracker) => ({ tracker, ...await tracker.getStartedGames() })));
+        .map(async (tracker) => ({ tracker, ...await tracker.getStartedGames(formData, []) })));
     if (trackerNames.includes('Steam')) {
         const appids = new Set();
         results.forEach(result => result.games.forEach(game => appids.add(game.appid)));
         const tracker = new Steam(profileData);
-        results.push({ tracker, ...await tracker.getStartedGames([...appids]) });
+        results.push({ tracker, ...await tracker.getStartedGames(formData, [...appids]) });
     }
     const numberOfTrackersWithGames = results.filter(result => result.games.length !== 0).length;
-    const missingAppids = groupBy(results.flatMap(r => r.games), g => g.appid)
+    const mismatchedAppids = groupBy(results.flatMap(r => r.games), g => g.appid)
         .filter(group => {
         if (group.length !== numberOfTrackersWithGames) {
             return true;
@@ -711,45 +870,63 @@ async function findDifferences(trackerNames, output) {
         return games.some(g => g.unlocked !== game.unlocked);
     })
         .map(group => group.key);
-    const sourceGames = [];
+    const mismatchedGames = [];
     const steamResult = results.find(result => result.tracker instanceof Steam);
-    function* getMissingGamesIterator() {
-        for (const appid of missingAppids) {
-            yield addMissingGame(appid);
+    function* getMismatchedGamesIterator() {
+        for (const appid of mismatchedAppids) {
+            yield getMismatchedGame(appid).then(game => mismatchedGames.push(game));
         }
     }
-    async function addMissingGame(appid) {
+    async function getMismatchedGame(appid) {
         var _a;
         let game = steamResult === null || steamResult === void 0 ? void 0 : steamResult.games.find(game => game.appid === appid);
-        if (game === undefined) {
-            const doc = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'X-ValveUserAgent': 'panorama' } });
-            const match = doc.body.innerHTML.match(/g_rgAchievements = ({.*});/);
-            if (match !== null) {
-                const g_rgAchievements = JSON.parse(match[1]);
-                const isPerfect = g_rgAchievements.totalClosed === g_rgAchievements.total;
-                game = {
-                    appid,
-                    unlocked: g_rgAchievements.totalClosed,
-                    total: g_rgAchievements.total,
-                    name: (_a = doc.body.innerHTML.match(/'SetContentTitle', '(.*) Achievements'/)) === null || _a === void 0 ? void 0 : _a[1],
-                    isPerfect,
-                    isCompleted: isPerfect ? true : undefined,
-                    isCounted: isPerfect,
-                    isTrusted: undefined,
-                };
-            }
-            else {
-                game = results.flatMap(r => r.games).find(game => game.appid === appid);
-            }
+        if (game !== undefined) {
+            return game;
         }
-        sourceGames.push(game);
+        let doc = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'X-ValveUserAgent': 'panorama' } });
+        const match = doc.body.innerHTML.match(/g_rgAchievements = ({.*});/);
+        if (match !== null) {
+            const g_rgAchievements = JSON.parse(match[1]);
+            const isPerfect = g_rgAchievements.totalClosed >= g_rgAchievements.total;
+            return {
+                appid,
+                unlocked: g_rgAchievements.totalClosed,
+                total: g_rgAchievements.total,
+                name: (_a = doc.body.innerHTML.match(/'SetContentTitle', '(.*) Achievements'/)) === null || _a === void 0 ? void 0 : _a[1],
+                isPerfect,
+                isCompleted: isPerfect ? true : undefined,
+                isCounted: isPerfect,
+                isTrusted: undefined,
+            };
+        }
+        doc = await getDocument(`https://steamcommunity.com/stats/${appid}/achievements`);
+        let total = doc.querySelectorAll('.achieveRow').length;
+        const games = results.flatMap(r => r.games).filter(game => game.appid === appid);
+        game = games.find(game => game.total === total);
+        if (game !== undefined) {
+            return game;
+        }
+        game = games[0];
+        const unlocked = Math.min(game.unlocked, total);
+        const isPerfect = unlocked >= total && unlocked !== 0;
+        return {
+            appid,
+            name: game.name,
+            unlocked,
+            total,
+            isPerfect,
+            isCompleted: isPerfect ? true : undefined,
+            isCounted: isPerfect,
+            isTrusted: undefined,
+        };
     }
-    const iterator = getMissingGamesIterator();
+    const iterator = getMismatchedGamesIterator();
     const pool = new PromisePool(iterator, 6);
     await pool.start();
     output.innerHTML = `
 		<div class="profile_comment_area">
 			${results.sort((a, b) => a.tracker.name.toUpperCase() < b.tracker.name.toUpperCase() ? -1 : 1).filter(result => result.tracker.name !== 'Steam').map(result => {
+        var _a;
         let html = `
 					<div style="margin-top: 1em;">
 						<a class="whiteLink" href="${result.tracker.getProfileURL()}" target="_blank">
@@ -765,17 +942,16 @@ async function findDifferences(trackerNames, output) {
 							</a>
 						</span>`;
         }
-        else if (result.games.length === 0) {
+        else if (result.error || result.games.length === 0) {
             html += `
 						<span style="color: #b33b32;">
-							✖ No achievements found
+							✖ ${(_a = result.error) !== null && _a !== void 0 ? _a : 'No achievements found'}
 						</span>`;
         }
         else {
-            const mismatchGames = sourceGames
-                .map(sourceGame => {
-                return { sourceGame, targetGame: result.games.find(game => game.appid === sourceGame.appid) };
-            })
+            const mismatchGames = mismatchedGames
+                .map(sourceGame => ({ sourceGame, targetGame: result.games.find(game => game.appid === sourceGame.appid) }))
+                .map(x => ({ sourceGame: x.sourceGame, targetGame: x.targetGame, game: merge(x.sourceGame, x.targetGame) }))
                 .filter(x => { var _a; return x.sourceGame.unlocked !== ((_a = x.targetGame) === null || _a === void 0 ? void 0 : _a.unlocked); });
             const gamesWithMissingAchievements = mismatchGames.filter(x => { var _a, _b; return x.sourceGame.unlocked > ((_b = (_a = x.targetGame) === null || _a === void 0 ? void 0 : _a.unlocked) !== null && _b !== void 0 ? _b : 0); });
             const gamesWithRemovedAchievements = mismatchGames.filter(x => { var _a, _b; return x.sourceGame.unlocked < ((_b = (_a = x.targetGame) === null || _a === void 0 ? void 0 : _a.unlocked) !== null && _b !== void 0 ? _b : 0); });
@@ -791,7 +967,7 @@ async function findDifferences(trackerNames, output) {
                         .map(x => { var _a, _b; return x.sourceGame.unlocked - ((_b = (_a = x.targetGame) === null || _a === void 0 ? void 0 : _a.unlocked) !== null && _b !== void 0 ? _b : 0); })
                         .reduce((a, b) => a + b);
                     const namesHTML = gamesWithMissingAchievements
-                        .map(x => { var _a; return ({ name: external_he_default().escape((_a = x.sourceGame.name) !== null && _a !== void 0 ? _a : `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid, x.sourceGame.name) }); })
+                        .map(x => { var _a; return ({ name: external_he_default().escape((_a = x.game.name) !== null && _a !== void 0 ? _a : `Unknown App ${x.game.appid}`), url: result.tracker.getGameURL(x.game) }); })
                         .sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
                         .map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
                         .join(' &bull; ');
@@ -824,7 +1000,7 @@ async function findDifferences(trackerNames, output) {
                         .map(x => { var _a, _b; return ((_b = (_a = x.targetGame) === null || _a === void 0 ? void 0 : _a.unlocked) !== null && _b !== void 0 ? _b : 0) - x.sourceGame.unlocked; })
                         .reduce((a, b) => a + b);
                     const namesHTML = gamesWithRemovedAchievements
-                        .map(x => { var _a; return ({ name: external_he_default().escape((_a = x.sourceGame.name) !== null && _a !== void 0 ? _a : `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid, x.sourceGame.name) }); })
+                        .map(x => { var _a; return ({ name: external_he_default().escape((_a = x.game.name) !== null && _a !== void 0 ? _a : `Unknown App ${x.game.appid}`), url: result.tracker.getGameURL(x.game) }); })
                         .sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
                         .map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
                         .join(' &bull; ');
@@ -940,8 +1116,8 @@ async function findDifferences(trackerNames, output) {
                         appid: game.appid,
                         name: game.name,
                         messages: messages.join('; '),
-                        sourceURL: source.tracker.getGameURL(game.appid, game.name),
-                        targetURL: target.tracker.getGameURL(game.appid, game.name),
+                        sourceURL: source.tracker.getGameURL(game),
+                        targetURL: target.tracker.getGameURL(game),
                     });
                 }
             }

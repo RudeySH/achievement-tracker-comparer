@@ -4,6 +4,12 @@ export const iconExternalLink =
 export const domParser = new DOMParser();
 
 export async function getDocument(url: string, details?: Partial<GM.Request>) {
+	const html = await getHTML(url, details);
+
+	return domParser.parseFromString(html, 'text/html');
+}
+
+export async function getHTML(url: string, details?: Partial<GM.Request>) {
 	const data = await xmlHttpRequest({
 		method: 'GET',
 		overrideMimeType: 'text/html',
@@ -11,7 +17,7 @@ export async function getDocument(url: string, details?: Partial<GM.Request>) {
 		...details,
 	});
 
-	return domParser.parseFromString(data.responseText, 'text/html');
+	return data.responseText;
 }
 
 export async function getJSON<T = never>(url: string, details?: Partial<GM.Request>) {
@@ -104,4 +110,28 @@ export class Grouping<TKey, TItem> extends Array<TItem> {
 		super(...items);
 		this.key = key;
 	}
+}
+
+export function merge<T>(source: T, target: T | undefined): T {
+	if (!target) {
+		return source;
+	}
+
+	const source2 = Object.fromEntries(
+		Object.entries(source).filter(([_, v]) => v !== undefined)
+	);
+
+	return Object.assign({... target }, source2);
+}
+
+export function trim(string: string, trim: string) {
+	if (string.startsWith(trim)) {
+		string = string.substring(trim.length);
+	}
+
+	if (string.endsWith(trim)) {
+		string = string.substring(0, string.length - trim.length);
+	}
+
+	return string
 }

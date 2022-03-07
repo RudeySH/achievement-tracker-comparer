@@ -9,7 +9,8 @@ import { MetaGamerScore } from './trackers/metagamerscore';
 import { Steam } from './trackers/steam';
 import { SteamHunters } from './trackers/steam-hunters';
 import { Tracker } from './trackers/tracker';
-import { getDocument, groupBy, iconExternalLink } from './utils/utils';
+import { TrueSteamAchievements } from './trackers/truesteamachievements';
+import { getDocument, groupBy, iconExternalLink, merge } from './utils/utils';
 
 declare global {
 	interface Window {
@@ -28,9 +29,10 @@ const trackers: Tracker[] = [
 	new AStats(profileData),
 	new Exophase(profileData),
 	new MetaGamerScore(profileData),
+	new TrueSteamAchievements(profileData),
 ];
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
 	const container = document.querySelector('.profile_rightcol');
 
 	if (container === null) {
@@ -59,6 +61,14 @@ window.addEventListener('load', () => {
 
 		.atc input[type="checkbox"] {
 			vertical-align: top;
+		}
+
+		.atc #atc_tsa_profile_url {
+			box-shadow: 1px 1px 1px rgb(255 255 255 / 10%);
+			font-size: x-small;
+			margin-top: 3px;
+			padding: 3px;
+			width: calc(100% - 6px);
 		}
 
 		.atc .atc_help {
@@ -96,12 +106,15 @@ window.addEventListener('load', () => {
 								<input type="checkbox" name="trackerName" value="${tracker.name}" ${tracker.ownProfileOnly && !isOwnProfile ? 'disabled' : ''} />
 								${tracker.name}
 							</label>
-							<a class="whiteLink" href="${tracker.getProfileURL()}" target="_blank">
-								${iconExternalLink}
-							</a>
+							${tracker.getProfileURL() === undefined ? '' :
+								`<a class="whiteLink" href="${tracker.getProfileURL()}" target="_blank">
+									${iconExternalLink}
+								</a>`}
 							${tracker.signInLink ? '<small class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">1</small>' : ''}
 							${tracker.ownProfileOnly ? '<small class="atc_help" title="Own profile only" aria-describedby="atc_own_profile_only">2</small>' : ''}
 						</div>`).join('')}
+					<input type="text" name="tsaProfileUrl" id="atc_tsa_profile_url" placeholder="Enter your TSA profile URL..." required hidden
+						pattern="[^/?#]+|https://truesteamachievements\\.com/gamer/[^/?#]+" />
 					<p ${isOwnProfile ? '' : 'hidden'}>
 						<label>
 							<input type="checkbox" name="trackerName" value="Steam" />
@@ -132,23 +145,43 @@ window.addEventListener('load', () => {
 	const node = document.importNode(template.content, true);
 	const form = node.querySelector('form')!;
 
-	const checkboxes = form.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+	const checkboxes = [...form.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
 	const button = form.querySelector<HTMLButtonElement>('button#atc_btn')!;
 	const buttonSpan = button.querySelector('span')!;
 	const counter = form.querySelector('#atc_counter')!;
 
 	const output = node.querySelector('#atc_output')!;
 
-	form.addEventListener('change', () => {
+	const tsaCheckbox = checkboxes.find(x => x.value === 'TrueSteamAchievements')!;
+	const tsaProfileUrlInput = form.querySelector<HTMLInputElement>('#atc_tsa_profile_url')!;
+	const tsaProfileUrlKey = profileData.steamid + '/tsaProfileUrl';
+
+	tsaCheckbox.addEventListener('input', () => {
+		if (tsaCheckbox.checked) {
+			tsaProfileUrlInput.hidden = false;
+		} else {
+			tsaProfileUrlInput.hidden = true;
+		}
+	});
+
+	const updateForm = async () => {
 		const formData = new FormData(form);
 		const trackerNames = formData.getAll('trackerName');
-		button.disabled = trackerNames.length < 2;
+		button.disabled = trackerNames.length < 2 || !tsaProfileUrlInput.hidden && !tsaProfileUrlInput.validity.valid;
 		counter.textContent = trackerNames.length.toString();
-	});
+
+		try {
+			await GM.setValue(tsaProfileUrlKey, tsaProfileUrlInput.value);
+		} catch (e) {
+			console.error(e);
+		}
+	};
+
+	form.addEventListener('change', updateForm);
+	form.addEventListener('input', updateForm);
 
 	button.addEventListener('click', async () => {
 		const formData = new FormData(form);
-		const trackerNames = formData.getAll('trackerName');
 
 		button.disabled = true;
 		buttonSpan.textContent = 'Loading...';
@@ -159,7 +192,7 @@ window.addEventListener('load', () => {
 		}
 
 		try {
-			await findDifferences(trackerNames, output);
+			await findDifferences(formData, output);
 		} catch (e) {
 			console.error(e);
 		}
@@ -173,26 +206,34 @@ window.addEventListener('load', () => {
 	});
 
 	container.appendChild(node);
+
+	try {
+		tsaProfileUrlInput.value = await GM.getValue(tsaProfileUrlKey) ?? '';
+	} catch (e) {
+		console.error(e);
+	}
 });
 
-async function findDifferences(trackerNames: FormDataEntryValue[], output: Element) {
+async function findDifferences(formData: FormData, output: Element) {
 	output.innerHTML = '';
+
+	const trackerNames = formData.getAll('trackerName');
 
 	const results = await Promise.all(trackers
 		.filter(tracker => trackerNames.includes(tracker.name))
-		.map(async tracker => ({ tracker, ...await tracker.getStartedGames() })));
+		.map(async tracker => ({ tracker, ...await tracker.getStartedGames(formData, []) })));
 
 	if (trackerNames.includes('Steam')) {
 		const appids = new Set<number>();
 		results.forEach(result => result.games.forEach(game => appids.add(game.appid)));
 
 		const tracker = new Steam(profileData);
-		results.push({ tracker, ...await tracker.getStartedGames([...appids]) });
+		results.push({ tracker, ...await tracker.getStartedGames(formData, [...appids]) });
 	}
 
 	const numberOfTrackersWithGames = results.filter(result => result.games.length !== 0).length;
 
-	const missingAppids = groupBy(results.flatMap(r => r.games), g => g.appid)
+	const mismatchedAppids = groupBy(results.flatMap(r => r.games), g => g.appid)
 		.filter(group => {
 			if (group.length !== numberOfTrackersWithGames) {
 				return true;
@@ -203,45 +244,68 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 		})
 		.map(group => group.key);
 
-	const sourceGames: Game[] = [];
+	const mismatchedGames: Game[] = [];
 	const steamResult = results.find(result => result.tracker instanceof Steam);
 
-	function* getMissingGamesIterator() {
-		for (const appid of missingAppids) {
-			yield addMissingGame(appid);
+	function* getMismatchedGamesIterator() {
+		for (const appid of mismatchedAppids) {
+			yield getMismatchedGame(appid).then(game => mismatchedGames.push(game));
 		}
 	}
 
-	async function addMissingGame(appid: number) {
+	async function getMismatchedGame(appid: number) {
 		let game = steamResult?.games.find(game => game.appid === appid);
 
-		if (game === undefined) {
-			const doc = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'X-ValveUserAgent': 'panorama' } });
-			const match = doc.body.innerHTML.match(/g_rgAchievements = ({.*});/);
-
-			if (match !== null) {
-				const g_rgAchievements: { total: number; totalClosed: number; } = JSON.parse(match[1]);
-				const isPerfect = g_rgAchievements.totalClosed === g_rgAchievements.total;
-
-				game = {
-					appid,
-					unlocked: g_rgAchievements.totalClosed,
-					total: g_rgAchievements.total,
-					name: doc.body.innerHTML.match(/'SetContentTitle', '(.*) Achievements'/)?.[1],
-					isPerfect,
-					isCompleted: isPerfect ? true : undefined,
-					isCounted: isPerfect,
-					isTrusted: undefined,
-				}
-			} else {
-				game = results.flatMap(r => r.games).find(game => game.appid === appid)!;
-			}
+		if (game !== undefined) {
+			return game;
 		}
 
-		sourceGames.push(game);
+		let doc = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'X-ValveUserAgent': 'panorama' } });
+		const match = doc.body.innerHTML.match(/g_rgAchievements = ({.*});/);
+
+		if (match !== null) {
+			const g_rgAchievements: { total: number; totalClosed: number; } = JSON.parse(match[1]);
+			const isPerfect = g_rgAchievements.totalClosed >= g_rgAchievements.total;
+
+			return {
+				appid,
+				unlocked: g_rgAchievements.totalClosed,
+				total: g_rgAchievements.total,
+				name: doc.body.innerHTML.match(/'SetContentTitle', '(.*) Achievements'/)?.[1],
+				isPerfect,
+				isCompleted: isPerfect ? true : undefined,
+				isCounted: isPerfect,
+				isTrusted: undefined,
+			};
+		}
+
+		doc = await getDocument(`https://steamcommunity.com/stats/${appid}/achievements`);
+		let total = doc.querySelectorAll('.achieveRow').length;
+
+		const games = results.flatMap(r => r.games).filter(game => game.appid === appid)!;
+		game = games.find(game => game.total === total);
+
+		if (game !== undefined) {
+			return game;
+		}
+
+		game = games[0];
+		const unlocked = Math.min(game.unlocked, total);
+		const isPerfect = unlocked >= total && unlocked !== 0;
+
+		return {
+			appid,
+			name: game.name,
+			unlocked,
+			total,
+			isPerfect,
+			isCompleted: isPerfect ? true : undefined,
+			isCounted: isPerfect,
+			isTrusted: undefined,
+		};
 	}
 
-	const iterator = getMissingGamesIterator();
+	const iterator = getMismatchedGamesIterator();
 	const pool = new PromisePool(iterator, 6);
 	await pool.start();
 
@@ -263,16 +327,15 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 								Sign in ${result.signInAs ? `as ${he.escape(result.signInAs)}` : ''} ${iconExternalLink}
 							</a>
 						</span>`;
-				} else if (result.games.length === 0) {
+				} else if (result.error || result.games.length === 0) {
 					html += `
 						<span style="color: #b33b32;">
-							✖ No achievements found
+							✖ ${result.error ?? 'No achievements found'}
 						</span>`;
 				} else {
-					const mismatchGames = sourceGames
-						.map(sourceGame => {
-							return { sourceGame, targetGame: result.games.find(game => game.appid === sourceGame.appid) };
-						})
+					const mismatchGames = mismatchedGames
+						.map(sourceGame => ({ sourceGame, targetGame: result.games.find(game => game.appid === sourceGame.appid)}))
+						.map(x => ({ sourceGame: x.sourceGame, targetGame: x.targetGame, game: merge(x.sourceGame, x.targetGame) }))
 						.filter(x => x.sourceGame.unlocked !== x.targetGame?.unlocked);
 
 					const gamesWithMissingAchievements = mismatchGames.filter(x => x.sourceGame.unlocked > (x.targetGame?.unlocked ?? 0));
@@ -290,7 +353,7 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 								.reduce((a, b) => a + b);
 
 							const namesHTML = gamesWithMissingAchievements
-								.map(x => ({ name: he.escape(x.sourceGame.name ?? `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid, x.sourceGame.name) }))
+								.map(x => ({ name: he.escape(x.game.name ?? `Unknown App ${x.game.appid}`), url: result.tracker.getGameURL(x.game) }))
 								.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
 								.map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
 								.join(' &bull; ');
@@ -326,7 +389,7 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 								.reduce((a, b) => a + b);
 
 							const namesHTML = gamesWithRemovedAchievements
-								.map(x => ({ name: he.escape(x.sourceGame.name ?? `Unknown App ${x.sourceGame.appid}`), url: result.tracker.getGameURL(x.sourceGame.appid, x.sourceGame.name) }))
+								.map(x => ({ name: he.escape(x.game.name ?? `Unknown App ${x.game.appid}`), url: result.tracker.getGameURL(x.game) }))
 								.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
 								.map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
 								.join(' &bull; ');
@@ -452,8 +515,8 @@ async function findDifferences(trackerNames: FormDataEntryValue[], output: Eleme
 						appid: game.appid,
 						name: game.name,
 						messages: messages.join('; '),
-						sourceURL: source.tracker.getGameURL(game.appid, game.name),
-						targetURL: target.tracker.getGameURL(game.appid, game.name),
+						sourceURL: source.tracker.getGameURL(game),
+						targetURL: target.tracker.getGameURL(game),
 					});
 				}
 			}

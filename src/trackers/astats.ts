@@ -9,8 +9,8 @@ export class AStats extends Tracker {
 		return `https://astats.astats.nl/astats/User_Info.php?steamID64=${this.profileData.steamid}&utm_campaign=userscript`;
 	}
 
-	override getGameURL(appid: number) {
-		return `https://astats.astats.nl/astats/Steam_Game_Info.php?AppID=${appid}&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`;
+	override getGameURL(game: Game) {
+		return `https://astats.astats.nl/astats/Steam_Game_Info.php?AppID=${game.appid}&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`;
 	}
 
 	override async getStartedGames() {

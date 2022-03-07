@@ -35,7 +35,11 @@ var config = {
           '/^https://steamcommunity\\.com/profiles/\\d{17}/*$/',
         ],
         namespace: 'https://github.com/RudeySH/achievement-tracker-comparer',
-        grant: 'GM.xmlHttpRequest',
+        grant: [
+          'GM.getValue',
+          'GM.setValue',
+          'GM.xmlHttpRequest',
+        ],
         connect: [
           'astats.nl',
           'completionist.me',

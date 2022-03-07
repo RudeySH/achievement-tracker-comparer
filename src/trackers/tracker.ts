@@ -13,11 +13,11 @@ export abstract class Tracker {
 		this.profileData = profileData;
 	}
 
-	abstract getProfileURL(): string;
+	abstract getProfileURL(): string | undefined;
 
-	abstract getGameURL(appid: number, name: string | undefined): string | undefined;
+	abstract getGameURL(game: Game): string | undefined;
 
-	abstract getStartedGames(appids?: number[]): Promise<{ games: Game[], signIn?: boolean, signInAs?: string }>;
+	abstract getStartedGames(formData: FormData, appids: number[]): Promise<{ games: Game[], signIn?: boolean, signInAs?: string, error?: string }>;
 
 	abstract getRecoverLinkHTML(games: RecoverGame[]): string | undefined;
 
