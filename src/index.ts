@@ -75,6 +75,10 @@ window.addEventListener('load', async () => {
 			cursor: help;
 		}
 
+		.atc .atc_profile_achievement_tracker_links {
+			margin-bottom: 40px;
+		}
+
 		.atc .commentthread_entry_quotebox {
 			font-size: 11px;
 			height: 48px;
@@ -85,6 +89,20 @@ window.addEventListener('load', async () => {
 
 		.atc .profile_comment_area {
 			margin-top: 0;
+		}
+
+		@media screen and (max-width: 910px) {
+			.atc .atc_profile_achievement_tracker_links {
+				margin-top: -4px;
+				margin-bottom: 12px;
+				padding-bottom: 4px;
+			}
+
+			.atc .profile_count_link {
+				float: none !important;
+				height: auto !important;
+				width: auto !important;
+			}
 		}`;
 
 	document.head.appendChild(style);
@@ -92,53 +110,57 @@ window.addEventListener('load', async () => {
 	const template = document.createElement('template');
 	template.innerHTML = `
 		<div class="atc">
-			<div class="profile_item_links">
-				<form>
-					<div class="profile_count_link ellipsis">
-						<a>
-							<span class="count_link_label">Achievement Trackers</span>&nbsp;
-							<span class="profile_count_link_total">${trackers.length}</span>
-						</a>
+			<div class="responsive_count_link_area">
+				<div class="atc_profile_achievement_tracker_links">
+					<div class="profile_count_link">
+						<form>
+							<div class="ellipsis">
+								<a>
+									<span class="count_link_label">Achievement Trackers</span>&nbsp;
+									<span class="profile_count_link_total">${trackers.length}</span>
+								</a>
+							</div>
+							${trackers.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1).map(tracker =>
+								`<div>
+									<label>
+										<input type="checkbox" name="trackerName" value="${tracker.name}" ${tracker.ownProfileOnly && !isOwnProfile ? 'disabled' : ''} />
+										${tracker.name}
+									</label>
+									${tracker.getProfileURL() === undefined ? '' :
+										`<a class="whiteLink" href="${tracker.getProfileURL()}" target="_blank">
+											${iconExternalLink}
+										</a>`}
+									${tracker.signInLink ? '<small class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">1</small>' : ''}
+									${tracker.ownProfileOnly ? '<small class="atc_help" title="Own profile only" aria-describedby="atc_own_profile_only">2</small>' : ''}
+								</div>`).join('')}
+							<input type="text" name="tsaProfileUrl" id="atc_tsa_profile_url" placeholder="Enter the TSA profile URL..." required hidden
+								pattern="[^/?#]+|https://truesteamachievements\\.com/gamer/[^/?#]+" />
+							<p ${isOwnProfile ? '' : 'hidden'}>
+								<label>
+									<input type="checkbox" name="trackerName" value="Steam" />
+									Steam profile showcases (slow)
+								</label>
+							</p>
+							<p>
+								<small id="atc_sign_in_required">
+									1. Sign-in required
+								</small>
+								&nbsp;
+								<small id="atc_own_profile_only">
+									2. Own profile only
+								</small>
+							</p>
+							<p>
+								<button type="button" class="btn_profile_action btn_medium" id="atc_btn" disabled>
+									<span>Find Differences</span>
+								</button>
+								<span id="atc_counter">0</span>
+								selected
+							</p>
+						</form>
+						<div id="atc_output"></div>
 					</div>
-					${trackers.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1).map(tracker =>
-						`<div>
-							<label>
-								<input type="checkbox" name="trackerName" value="${tracker.name}" ${tracker.ownProfileOnly && !isOwnProfile ? 'disabled' : ''} />
-								${tracker.name}
-							</label>
-							${tracker.getProfileURL() === undefined ? '' :
-								`<a class="whiteLink" href="${tracker.getProfileURL()}" target="_blank">
-									${iconExternalLink}
-								</a>`}
-							${tracker.signInLink ? '<small class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">1</small>' : ''}
-							${tracker.ownProfileOnly ? '<small class="atc_help" title="Own profile only" aria-describedby="atc_own_profile_only">2</small>' : ''}
-						</div>`).join('')}
-					<input type="text" name="tsaProfileUrl" id="atc_tsa_profile_url" placeholder="Enter the TSA profile URL..." required hidden
-						pattern="[^/?#]+|https://truesteamachievements\\.com/gamer/[^/?#]+" />
-					<p ${isOwnProfile ? '' : 'hidden'}>
-						<label>
-							<input type="checkbox" name="trackerName" value="Steam" />
-							Steam profile showcases (slow)
-						</label>
-					</p>
-					<p>
-						<small id="atc_sign_in_required">
-							1. Sign-in required
-						</small>
-						&nbsp;
-						<small id="atc_own_profile_only">
-							2. Own profile only
-						</small>
-					</p>
-					<p>
-						<button type="button" class="btn_profile_action btn_medium" id="atc_btn" disabled>
-							<span>Find Differences</span>
-						</button>
-						<span id="atc_counter">0</span>
-						selected
-					</p>
-				</form>
-				<div id="atc_output"></div>
+				</div>
 			</div>
 		</div>`;
 
