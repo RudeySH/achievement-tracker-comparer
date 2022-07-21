@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.3.4
+// @version     1.3.5
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters, TrueSteamAchievements and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -582,7 +582,7 @@ class TrueSteamAchievements extends Tracker {
         this.name = 'TrueSteamAchievements';
     }
     getProfileURL() {
-        return undefined;
+        return this.profileUrl;
     }
     getGameURL(game) {
         if (!game.tsaUrlName) {
@@ -593,18 +593,19 @@ class TrueSteamAchievements extends Tracker {
     async getStartedGames(formData) {
         const games = [];
         const prefix = 'https://truesteamachievements.com/gamer/';
-        let url = `${formData.get('tsaProfileUrl')}/games?utm_campaign=userscript`;
-        if (!url.startsWith(prefix)) {
-            url = prefix + url;
+        let profileUrl = `${formData.get('tsaProfileUrl')}/games?utm_campaign=userscript`;
+        if (!profileUrl.startsWith(prefix)) {
+            profileUrl = prefix + profileUrl;
         }
-        const html = await getHTML(url);
+        this.profileUrl = profileUrl;
+        const html = await getHTML(profileUrl);
         this.gamerID = /gamerid=(\d+)/.exec(html)[1];
         const gamesList = document.createElement('div');
         const params = `oGamerGamesList|oGamerGamesList_ItemsPerPage=99999999&txtGamerID=${this.gamerID}`;
-        const gamesListURL = `${url}&executeformfunction&function=AjaxList&params=${encodeURIComponent(params)}`;
+        const gamesListURL = `${profileUrl}&executeformfunction&function=AjaxList&params=${encodeURIComponent(params)}`;
         gamesList.innerHTML = await getHTML(gamesListURL);
         const rows = gamesList.querySelectorAll('tr');
-        for (var i = 1; i < rows.length - 1; i++) {
+        for (let i = 1; i < rows.length - 1; i++) {
             const row = rows[i];
             const anchor = row.querySelector('a[href*="gameid="]');
             const counts = row.cells[2].textContent.split(' of ').map(s => parseInt(s.replace(/,/g, '')));
