@@ -21,7 +21,7 @@ export class MetaGamerScore extends Tracker {
 			return `https://metagamerscore.com/my_games?user=${this.userID}&filter=${encodeURIComponent(game.name)}&utm_campaign=userscript`;
 		}
 
-		let urlFriendlyName = trim(game.name.toLowerCase().replace(/\W+/g, '-'), '-');
+		const urlFriendlyName = trim(game.name.toLowerCase().replace(/\W+/g, '-'), '-');
 
 		return `https://metagamerscore.com/game/${game.mgsId}-${urlFriendlyName}?user=${this.userID}&utm_campaign=userscript`;
 	}
@@ -55,9 +55,9 @@ export class MetaGamerScore extends Tracker {
 				name: game.name,
 				unlocked,
 				total,
-				isPerfect: unlocked >= total,
-				isCompleted: game.earned >= game.total ? true : undefined,
-				isCounted: game.earned >= game.total,
+				isPerfect: total !== 0 && unlocked >= total,
+				isCompleted: game.total !== 0 && game.earned >= game.total,
+				isCounted: game.total !== 0 && game.earned >= game.total,
 				isTrusted: undefined,
 			};
 		});

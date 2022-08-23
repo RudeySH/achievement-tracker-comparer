@@ -302,7 +302,7 @@ async function findDifferences(formData: FormData, output: Element) {
 		}
 
 		doc = await getDocument(`https://steamcommunity.com/stats/${appid}/achievements`);
-		let total = doc.querySelectorAll('.achieveRow').length;
+		const total = doc.querySelectorAll('.achieveRow').length;
 
 		const games = results.flatMap(r => r.games).filter(game => game.appid === appid)!;
 		game = games.find(game => game.total === total);

@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Achievement Tracker Comparer
-// @version     1.3.5
+// @version     1.3.6
 // @author      Rudey
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters, TrueSteamAchievements and Steam Community profiles.
 // @homepage    https://github.com/RudeySH/achievement-tracker-comparer#readme
@@ -365,7 +365,7 @@ class MetaGamerScore extends Tracker {
         if (!game.mgsId) {
             return `https://metagamerscore.com/my_games?user=${this.userID}&filter=${encodeURIComponent(game.name)}&utm_campaign=userscript`;
         }
-        let urlFriendlyName = trim(game.name.toLowerCase().replace(/\W+/g, '-'), '-');
+        const urlFriendlyName = trim(game.name.toLowerCase().replace(/\W+/g, '-'), '-');
         return `https://metagamerscore.com/game/${game.mgsId}-${urlFriendlyName}?user=${this.userID}&utm_campaign=userscript`;
     }
     async getStartedGames() {
@@ -394,9 +394,9 @@ class MetaGamerScore extends Tracker {
                 name: game.name,
                 unlocked,
                 total,
-                isPerfect: unlocked >= total,
-                isCompleted: game.earned >= game.total ? true : undefined,
-                isCounted: game.earned >= game.total,
+                isPerfect: total !== 0 && unlocked >= total,
+                isCompleted: game.total !== 0 && game.earned >= game.total,
+                isCounted: game.total !== 0 && game.earned >= game.total,
                 isTrusted: undefined,
             };
         });
@@ -545,7 +545,7 @@ class SteamHunters extends Tracker {
         return `https://steamhunters.com/profiles/${this.profileData.steamid}?utm_campaign=userscript`;
     }
     getGameURL(game) {
-        return `https://steamhunters.com/profiles/${this.profileData.steamid}/stats/${game.appid}?utm_campaign=userscript`;
+        return `https://steamhunters.com/profiles/${this.profileData.steamid}/apps/${game.appid}?utm_campaign=userscript`;
     }
     async getStartedGames() {
         const licenses = await getJSON(`https://steamhunters.com/api/steam-users/${this.profileData.steamid}/licenses?state=started&utm_campaign=userscript`);
@@ -609,14 +609,13 @@ class TrueSteamAchievements extends Tracker {
             const row = rows[i];
             const anchor = row.querySelector('a[href*="gameid="]');
             const counts = row.cells[2].textContent.split(' of ').map(s => parseInt(s.replace(/,/g, '')));
-            ;
             const unlocked = counts[0];
             const total = counts[1];
             const isPerfect = unlocked >= total;
             games.push({
                 appid: 0,
                 tsaGameId: parseInt(new URL(anchor.href).searchParams.get('gameid')),
-                tsaUrlName: /game\/([^\/]+)/.exec(row.querySelector('a').href)[1],
+                tsaUrlName: /game\/([^/]+)/.exec(row.querySelector('a').href)[1],
                 name: row.cells[1].textContent,
                 unlocked,
                 total,
@@ -928,7 +927,7 @@ async function findDifferences(formData, output) {
             };
         }
         doc = await getDocument(`https://steamcommunity.com/stats/${appid}/achievements`);
-        let total = doc.querySelectorAll('.achieveRow').length;
+        const total = doc.querySelectorAll('.achieveRow').length;
         const games = results.flatMap(r => r.games).filter(game => game.appid === appid);
         game = games.find(game => game.total === total);
         if (game !== undefined) {

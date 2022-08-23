@@ -46,7 +46,7 @@ export class TrueSteamAchievements extends Tracker {
 		for (let i = 1; i < rows.length - 1; i++) {
 			const row = rows[i];
 			const anchor = row.querySelector<HTMLAnchorElement>('a[href*="gameid="]')!;
-			const counts = row.cells[2].textContent!.split(' of ').map(s => parseInt(s.replace(/,/g, '')));;
+			const counts = row.cells[2].textContent!.split(' of ').map(s => parseInt(s.replace(/,/g, '')));
 			const unlocked = counts[0];
 			const total = counts[1];
 			const isPerfect = unlocked >= total;
@@ -54,7 +54,7 @@ export class TrueSteamAchievements extends Tracker {
 			games.push({
 				appid: 0,
 				tsaGameId: parseInt(new URL(anchor.href).searchParams.get('gameid')!),
-				tsaUrlName: /game\/([^\/]+)/.exec(row.querySelector('a')!.href)![1],
+				tsaUrlName: /game\/([^/]+)/.exec(row.querySelector('a')!.href)![1],
 				name: row.cells[1].textContent!,
 				unlocked,
 				total,

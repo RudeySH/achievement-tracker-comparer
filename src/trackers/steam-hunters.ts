@@ -12,7 +12,7 @@ export class SteamHunters extends Tracker {
 	}
 
 	override getGameURL(game: Game) {
-		return `https://steamhunters.com/profiles/${this.profileData.steamid}/stats/${game.appid}?utm_campaign=userscript`;
+		return `https://steamhunters.com/profiles/${this.profileData.steamid}/apps/${game.appid}?utm_campaign=userscript`;
 	}
 
 	override async getStartedGames() {
