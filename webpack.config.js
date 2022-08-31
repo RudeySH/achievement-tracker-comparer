@@ -34,6 +34,7 @@ var config = {
           '/^https://steamcommunity\\.com/id/[a-zA-Z0-9_-]{3,32}/*$/',
           '/^https://steamcommunity\\.com/profiles/\\d{17}/*$/',
         ],
+        license: 'AGPL-3.0-or-later',
         namespace: 'https://github.com/RudeySH/achievement-tracker-comparer',
         grant: [
           'GM.getValue',
