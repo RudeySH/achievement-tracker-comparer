@@ -230,7 +230,7 @@ window.addEventListener('load', async () => {
 	container.appendChild(node);
 
 	try {
-		tsaProfileUrlInput.value = await GM.getValue(tsaProfileUrlKey) ?? '';
+		tsaProfileUrlInput.value = await GM.getValue(tsaProfileUrlKey, '');
 	} catch (e) {
 		console.error(e);
 	}

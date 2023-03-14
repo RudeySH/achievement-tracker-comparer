@@ -112,7 +112,7 @@ export class Grouping<TKey, TItem> extends Array<TItem> {
 	}
 }
 
-export function merge<T>(source: T, target: T | undefined): T {
+export function merge<T extends object>(source: T, target: T | undefined): T {
 	if (!target) {
 		return source;
 	}
