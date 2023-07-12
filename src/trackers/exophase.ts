@@ -45,7 +45,11 @@ export class Exophase extends Tracker {
 		return { games };
 	}
 
-	override getRecoverLinkHTML() {
+	override getRecoverLinkHTML(isOwnProfile: boolean) {
+		if (!isOwnProfile) {
+			return undefined;
+		}
+
 		return `
 			<a class="whiteLink" href="https://www.exophase.com/account/?utm_campaign=userscript#tools" target="_blank">
 				Recover ${iconExternalLink}

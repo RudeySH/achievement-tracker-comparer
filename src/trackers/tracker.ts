@@ -19,7 +19,7 @@ export abstract class Tracker {
 
 	abstract getStartedGames(formData: FormData, appids: number[]): Promise<{ games: Game[], signIn?: boolean, signInAs?: string, error?: string }>;
 
-	abstract getRecoverLinkHTML(games: RecoverGame[]): string | undefined;
+	abstract getRecoverLinkHTML(isOwnProfile: boolean, games: RecoverGame[]): string | undefined;
 
 	validate(_game: Game): string[] {
 		return [];

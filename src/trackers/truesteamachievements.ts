@@ -1,5 +1,4 @@
 import { Game } from '../interfaces/game';
-import { RecoverGame } from '../interfaces/recover-game';
 import { getHTML, getJSON } from '../utils/utils';
 import { Tracker } from './tracker';
 
@@ -108,7 +107,7 @@ export class TrueSteamAchievements extends Tracker {
 		}
 	}
 
-	override getRecoverLinkHTML(_games: RecoverGame[]) {
+	override getRecoverLinkHTML() {
 		return undefined;
 	}
 }

@@ -32,7 +32,7 @@ export class SteamHunters extends Tracker {
 		return { games };
 	}
 
-	override getRecoverLinkHTML(games: RecoverGame[]) {
+	override getRecoverLinkHTML(_isOwnProfile: boolean, games: RecoverGame[]) {
 		return `
 			<form method="post" action="https://steamhunters.com/profiles/${this.profileData.steamid}/recover?utm_campaign=userscript" target="_blank">
 				<input type="hidden" name="version" value="2.0">

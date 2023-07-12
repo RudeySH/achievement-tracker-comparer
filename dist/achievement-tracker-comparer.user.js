@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Achievement Tracker Comparer
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters, TrueSteamAchievements and Steam Community profiles.
-// @version 1.3.8
+// @version 1.4.0
 // @author Rudey
 // @homepage https://github.com/RudeySH/achievement-tracker-comparer#readme
 // @supportURL https://github.com/RudeySH/achievement-tracker-comparer/issues
@@ -283,7 +283,10 @@ class Completionist extends Tracker {
         }
         return doc;
     }
-    getRecoverLinkHTML(games) {
+    getRecoverLinkHTML(isOwnProfile, games) {
+        if (!isOwnProfile) {
+            return undefined;
+        }
         return `
 			<form method="post" action="https://completionist.me/steam/recover/profile?utm_campaign=userscript" target="_blank">
 				<input type="hidden" name="app_ids" value="${games.map(game => game.appid)}">
@@ -336,7 +339,10 @@ class Exophase extends Tracker {
         }));
         return { games };
     }
-    getRecoverLinkHTML() {
+    getRecoverLinkHTML(isOwnProfile) {
+        if (!isOwnProfile) {
+            return undefined;
+        }
         return `
 			<a class="whiteLink" href="https://www.exophase.com/account/?utm_campaign=userscript#tools" target="_blank">
 				Recover ${iconExternalLink}
@@ -400,7 +406,10 @@ class MetaGamerScore extends Tracker {
         });
         return { games };
     }
-    getRecoverLinkHTML() {
+    getRecoverLinkHTML(isOwnProfile) {
+        if (!isOwnProfile) {
+            return undefined;
+        }
         return `
 			<a class="whiteLink" href="https://metagamerscore.com/steam/index_reconcile?utm_campaign=userscript" target="_blank">
 				Recover ${iconExternalLink}
@@ -559,7 +568,7 @@ class SteamHunters extends Tracker {
         }));
         return { games };
     }
-    getRecoverLinkHTML(games) {
+    getRecoverLinkHTML(_isOwnProfile, games) {
         return `
 			<form method="post" action="https://steamhunters.com/profiles/${this.profileData.steamid}/recover?utm_campaign=userscript" target="_blank">
 				<input type="hidden" name="version" value="2.0">
@@ -659,7 +668,7 @@ class TrueSteamAchievements extends Tracker {
             });
         }
     }
-    getRecoverLinkHTML(_games) {
+    getRecoverLinkHTML() {
         return undefined;
     }
 }
@@ -996,7 +1005,7 @@ async function findDifferences(formData, output) {
                         .map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
                         .join(' &bull; ');
                     const jsonGames = gamesWithMissingAchievements.map(x => ({ appid: x.sourceGame.appid, unlocked: x.sourceGame.unlocked, total: x.sourceGame.total }));
-                    const recoverLinkHTML = isOwnProfile ? result.tracker.getRecoverLinkHTML(jsonGames) : undefined;
+                    const recoverLinkHTML = result.tracker.getRecoverLinkHTML(isOwnProfile, jsonGames);
                     html += `
 								<span style="color: #b33b32;">
 									✖ ${missingAchievementsSum.toLocaleString()} missing achievement${missingAchievementsSum !== 1 ? 's' : ''}

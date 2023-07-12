@@ -381,7 +381,7 @@ async function findDifferences(formData: FormData, output: Element) {
 								.join(' &bull; ');
 
 							const jsonGames = gamesWithMissingAchievements.map<RecoverGame>(x => ({ appid: x.sourceGame.appid, unlocked: x.sourceGame.unlocked, total: x.sourceGame.total }));
-							const recoverLinkHTML = isOwnProfile ? result.tracker.getRecoverLinkHTML(jsonGames) : undefined;
+							const recoverLinkHTML = result.tracker.getRecoverLinkHTML(isOwnProfile, jsonGames);
 
 							html += `
 								<span style="color: #b33b32;">

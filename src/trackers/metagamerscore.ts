@@ -65,7 +65,11 @@ export class MetaGamerScore extends Tracker {
 		return { games };
 	}
 
-	override getRecoverLinkHTML() {
+	override getRecoverLinkHTML(isOwnProfile: boolean) {
+		if (!isOwnProfile) {
+			return undefined;
+		}
+
 		return `
 			<a class="whiteLink" href="https://metagamerscore.com/steam/index_reconcile?utm_campaign=userscript" target="_blank">
 				Recover ${iconExternalLink}

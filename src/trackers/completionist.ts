@@ -64,7 +64,11 @@ export class Completionist extends Tracker {
 		return doc;
 	}
 
-	override getRecoverLinkHTML(games: RecoverGame[]) {
+	override getRecoverLinkHTML(isOwnProfile: boolean, games: RecoverGame[]) {
+		if (!isOwnProfile) {
+			return undefined;
+		}
+
 		return `
 			<form method="post" action="https://completionist.me/steam/recover/profile?utm_campaign=userscript" target="_blank">
 				<input type="hidden" name="app_ids" value="${games.map(game => game.appid)}">
