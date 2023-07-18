@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Achievement Tracker Comparer
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters, TrueSteamAchievements and Steam Community profiles.
-// @version 1.4.0
+// @version 1.4.1
 // @author Rudey
 // @homepage https://github.com/RudeySH/achievement-tracker-comparer#readme
 // @supportURL https://github.com/RudeySH/achievement-tracker-comparer/issues
@@ -881,7 +881,7 @@ window.addEventListener('load', async () => {
     }
 });
 async function findDifferences(formData, output) {
-    var _a;
+    var _a, _b, _c;
     output.innerHTML = '';
     const trackerNames = formData.getAll('trackerName');
     const results = await Promise.all(trackers
@@ -1076,10 +1076,18 @@ async function findDifferences(formData, output) {
                 validationErrors.push({ name: (_a = game.name) !== null && _a !== void 0 ? _a : `Unknown App ${game.appid}`, messages: messages.join(', ') });
             }
         }
-        // TODO: display validation errors on screen instead of logging to console
         if (validationErrors.length !== 0) {
+            // TODO: display validation errors on screen instead of logging to console
+            const csv = `Name,Validation Errors\n`
+                + validationErrors.map(e => `${escapeCSV(e.name)},${e.messages}`).join('\n');
             console.info(`Validation errors on ${source.tracker.name}:`);
-            console.table(validationErrors);
+            if (validationErrors.length <= 100) {
+                console.table(validationErrors);
+                console.debug(csv);
+            }
+            else {
+                console.info(csv);
+            }
         }
         for (let targetIndex = sourceIndex + 1; targetIndex < results.length; targetIndex++) {
             const target = results[targetIndex];
@@ -1099,9 +1107,12 @@ async function findDifferences(formData, output) {
             // convert map into array
             const games = [...gamesMap].map(([appid, game]) => {
                 var _a, _b, _c, _d;
-                game.appid = appid;
-                game.name = (_d = (_b = (_a = game.source) === null || _a === void 0 ? void 0 : _a.name) !== null && _b !== void 0 ? _b : (_c = game.target) === null || _c === void 0 ? void 0 : _c.name) !== null && _d !== void 0 ? _d : `Unknown App ${appid}`;
-                return game;
+                return ({
+                    appid: appid,
+                    name: (_d = (_b = (_a = game.source) === null || _a === void 0 ? void 0 : _a.name) !== null && _b !== void 0 ? _b : (_c = game.target) === null || _c === void 0 ? void 0 : _c.name) !== null && _d !== void 0 ? _d : `Unknown App ${appid}`,
+                    source: game.source,
+                    target: game.target,
+                });
             });
             const differences = [];
             for (const game of games) {
@@ -1149,24 +1160,27 @@ async function findDifferences(formData, output) {
                         appid: game.appid,
                         name: game.name,
                         messages: messages.join('; '),
-                        sourceURL: source.tracker.getGameURL(game),
-                        targetURL: target.tracker.getGameURL(game),
+                        sourceURL: source.tracker.getGameURL((_b = game.source) !== null && _b !== void 0 ? _b : game.target),
+                        targetURL: target.tracker.getGameURL((_c = game.target) !== null && _c !== void 0 ? _c : game.source),
                     });
                 }
             }
-            // TODO: display differences on screen instead of logging to console
             if (differences.length === 0) {
                 console.info(`No differences between ${source.tracker.name} and ${target.tracker.name}.`);
                 continue;
             }
             differences.sort((a, b) => a.appid - b.appid);
+            // TODO: display differences on screen instead of logging to console
+            const csv = `App ID,Name,Differences,${source.tracker.name} URL,${target.tracker.name} URL\n`
+                + differences.map(d => `${d.appid},${escapeCSV(d.name)},${d.messages},${d.sourceURL},${d.targetURL}`).join('\n');
             console.info(`Differences between ${source.tracker.name} and ${target.tracker.name}:`);
             if (differences.length <= 100) {
                 console.table(differences);
+                console.debug(csv);
             }
-            const csv = `App ID,Name,Differences,${source.tracker.name} URL,${target.tracker.name} URL\n`
-                + differences.map(d => `${d.appid},${escapeCSV(d.name)},${d.messages},${d.sourceURL},${d.targetURL}`).join('\n');
-            console.debug(csv);
+            else {
+                console.info(csv);
+            }
         }
     }
 }
