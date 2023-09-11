@@ -47,6 +47,7 @@ var config = {
           'GM.setValue',
           'GM.xmlHttpRequest',
         ],
+        license: 'AGPL-3.0-or-later',
         namespace: 'https://github.com/RudeySH/achievement-tracker-comparer',
         require: [
           'https://cdnjs.cloudflare.com/ajax/libs/es6-promise-pool/2.5.0/es6-promise-pool.min.js',

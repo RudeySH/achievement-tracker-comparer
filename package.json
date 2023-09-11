@@ -1,6 +1,6 @@
 {
   "name": "achievement-tracker-comparer",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters, TrueSteamAchievements and Steam Community profiles.",
   "main": "dist/achievement-tracker-comparer.js",
   "scripts": {
@@ -29,6 +29,6 @@
     "typescript": "^4.9.5",
     "webpack": "^5.76.1",
     "webpack-cli": "^5.0.1",
-    "webpack-userscript": "^3.1.0"
+    "webpack-userscript": "^3.2.2"
   }
 }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Achievement Tracker Comparer
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters, TrueSteamAchievements and Steam Community profiles.
-// @version 1.4.2
+// @version 1.4.3
 // @author Rudey
 // @homepage https://github.com/RudeySH/achievement-tracker-comparer#readme
 // @supportURL https://github.com/RudeySH/achievement-tracker-comparer/issues
@@ -17,6 +17,7 @@
 // @grant GM.getValue
 // @grant GM.setValue
 // @grant GM.xmlHttpRequest
+// @license AGPL-3.0-or-later
 // @namespace https://github.com/RudeySH/achievement-tracker-comparer
 // @require https://cdnjs.cloudflare.com/ajax/libs/es6-promise-pool/2.5.0/es6-promise-pool.min.js
 // @require https://cdnjs.cloudflare.com/ajax/libs/he/1.2.0/he.min.js
