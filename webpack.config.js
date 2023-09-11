@@ -53,7 +53,7 @@ var config = {
           'https://cdnjs.cloudflare.com/ajax/libs/he/1.2.0/he.min.js',
         ],
       },
-      downloadBaseUrl: 'https://raw.githubusercontent.com/RudeySH/achievement-tracker-comparer/main/dist/',
+      downloadBaseURL: 'https://raw.githubusercontent.com/RudeySH/achievement-tracker-comparer/main/dist/',
     }),
   ],
 };
