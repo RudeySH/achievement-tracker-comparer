@@ -99,7 +99,7 @@ export class TrueSteamAchievements extends Tracker {
 
 			yield getHTML(url)
 				.then(response => {
-					const match = /app\/(\d+)/.exec(response);
+					const match = /steampowered.com\/app\/(\d+)/.exec(response);
 					if (match !== null) {
 						game.appid = parseInt(match[1]);
 					}
