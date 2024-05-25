@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Achievement Tracker Comparer
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters, TrueSteamAchievements and Steam Community profiles.
-// @version 1.4.3
+// @version 1.4.4
 // @author Rudey
 // @homepage https://github.com/RudeySH/achievement-tracker-comparer#readme
 // @supportURL https://github.com/RudeySH/achievement-tracker-comparer/issues
@@ -664,7 +664,7 @@ class TrueSteamAchievements extends Tracker {
             const url = this.getGameURL(game);
             yield getHTML(url)
                 .then(response => {
-                const match = /app\/(\d+)/.exec(response);
+                const match = /steampowered.com\/app\/(\d+)/.exec(response);
                 if (match !== null) {
                     game.appid = parseInt(match[1]);
                 }
