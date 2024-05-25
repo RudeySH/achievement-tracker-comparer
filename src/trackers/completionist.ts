@@ -1,3 +1,4 @@
+import PromisePool from 'es6-promise-pool';
 import { Game } from '../interfaces/game';
 import { RecoverGame } from '../interfaces/recover-game';
 import { getDocument, iconExternalLink } from '../utils/utils';

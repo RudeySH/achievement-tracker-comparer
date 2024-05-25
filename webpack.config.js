@@ -4,7 +4,8 @@ const { UserscriptPlugin } = require('webpack-userscript');
 var config = {
   entry: './src/index.ts',
   externals: {
-    he: 'he',
+    'es6-promise-pool': 'PromisePool',
+    'he': 'he',
   },
   module: {
     rules: [

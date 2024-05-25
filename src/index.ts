@@ -1,4 +1,5 @@
 ﻿import he from 'he';
+import PromisePool from 'es6-promise-pool';
 import { Game } from './interfaces/game';
 import { ProfileData } from './interfaces/profile-data';
 import { RecoverGame } from './interfaces/recover-game';
@@ -334,56 +335,56 @@ async function findDifferences(formData: FormData, output: Element) {
 	output.innerHTML = `
 		<div class="profile_comment_area">
 			${results.sort((a, b) => a.tracker.name.toUpperCase() < b.tracker.name.toUpperCase() ? -1 : 1).filter(result => result.tracker.name !== 'Steam').map(result => {
-		let html = `
+				let html = `
 					<div style="margin-top: 1em;">
 						<a class="whiteLink" href="${result.tracker.getProfileURL()}" target="_blank">
 							${result.tracker.name} ${iconExternalLink}
 						</a>
 					</div>`;
 
-		if (result.signIn) {
-			html += `
+				if (result.signIn) {
+					html += `
 						<span style="color: #b33b32;">
 							✖
 							<a class="whiteLink" href="${result.tracker.signInLink}" target="_blank">
 								Sign in ${result.signInAs ? `as ${he.escape(result.signInAs)}` : ''} ${iconExternalLink}
 							</a>
 						</span>`;
-		} else if (result.error || result.games.length === 0) {
-			html += `
+				} else if (result.error || result.games.length === 0) {
+					html += `
 						<span style="color: #b33b32;">
 							✖ ${result.error ?? 'No achievements found'}
 						</span>`;
-		} else {
-			const mismatchGames = mismatchedGames
-				.map(sourceGame => ({ sourceGame, targetGame: result.games.find(game => game.appid === sourceGame.appid) }))
-				.map(x => ({ sourceGame: x.sourceGame, targetGame: x.targetGame, game: merge(x.sourceGame, x.targetGame) }))
-				.filter(x => x.sourceGame.unlocked !== x.targetGame?.unlocked);
+				} else {
+					const mismatchGames = mismatchedGames
+						.map(sourceGame => ({ sourceGame, targetGame: result.games.find(game => game.appid === sourceGame.appid) }))
+						.map(x => ({ sourceGame: x.sourceGame, targetGame: x.targetGame, game: merge(x.sourceGame, x.targetGame) }))
+						.filter(x => x.sourceGame.unlocked !== x.targetGame?.unlocked);
 
-			const gamesWithMissingAchievements = mismatchGames.filter(x => x.sourceGame.unlocked > (x.targetGame?.unlocked ?? 0));
-			const gamesWithRemovedAchievements = mismatchGames.filter(x => x.sourceGame.unlocked < (x.targetGame?.unlocked ?? 0));
+					const gamesWithMissingAchievements = mismatchGames.filter(x => x.sourceGame.unlocked > (x.targetGame?.unlocked ?? 0));
+					const gamesWithRemovedAchievements = mismatchGames.filter(x => x.sourceGame.unlocked < (x.targetGame?.unlocked ?? 0));
 
-			if (gamesWithMissingAchievements.length === 0 && gamesWithRemovedAchievements.length === 0) {
-				html += `
+					if (gamesWithMissingAchievements.length === 0 && gamesWithRemovedAchievements.length === 0) {
+						html += `
 							<span style="color: #90ba3c;">
 								✔ Up to date
 							</span>`;
-			} else {
-				if (gamesWithMissingAchievements.length !== 0) {
-					const missingAchievementsSum = gamesWithMissingAchievements
-						.map(x => x.sourceGame.unlocked - (x.targetGame?.unlocked ?? 0))
-						.reduce((a, b) => a + b);
+					} else {
+						if (gamesWithMissingAchievements.length !== 0) {
+							const missingAchievementsSum = gamesWithMissingAchievements
+								.map(x => x.sourceGame.unlocked - (x.targetGame?.unlocked ?? 0))
+								.reduce((a, b) => a + b);
 
-					const namesHTML = gamesWithMissingAchievements
-						.map(x => ({ name: he.escape(x.game.name ?? `Unknown App ${x.game.appid}`), url: result.tracker.getGameURL(x.game) }))
-						.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
-						.map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
-						.join(' &bull; ');
+							const namesHTML = gamesWithMissingAchievements
+								.map(x => ({ name: he.escape(x.game.name ?? `Unknown App ${x.game.appid}`), url: result.tracker.getGameURL(x.game) }))
+								.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
+								.map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
+								.join(' &bull; ');
 
-					const jsonGames = gamesWithMissingAchievements.map<RecoverGame>(x => ({ appid: x.sourceGame.appid, unlocked: x.sourceGame.unlocked, total: x.sourceGame.total }));
-					const recoverLinkHTML = result.tracker.getRecoverLinkHTML(isOwnProfile, jsonGames);
+							const jsonGames = gamesWithMissingAchievements.map<RecoverGame>(x => ({ appid: x.sourceGame.appid, unlocked: x.sourceGame.unlocked, total: x.sourceGame.total }));
+							const recoverLinkHTML = result.tracker.getRecoverLinkHTML(isOwnProfile, jsonGames);
 
-					html += `
+							html += `
 								<span style="color: #b33b32;">
 									✖ ${missingAchievementsSum.toLocaleString()} missing achievement${missingAchievementsSum !== 1 ? 's' : ''}
 									in ${gamesWithMissingAchievements.length.toLocaleString()} game${gamesWithMissingAchievements.length !== 1 ? 's' : ''}
@@ -404,21 +405,21 @@ async function findDifferences(formData: FormData, output: Element) {
 										${recoverLinkHTML}
 									`}
 								</div>`;
-				}
-				if (gamesWithRemovedAchievements.length !== 0) {
-					const removedAchievementsSum = gamesWithRemovedAchievements
-						.map(x => (x.targetGame?.unlocked ?? 0) - x.sourceGame.unlocked)
-						.reduce((a, b) => a + b);
+						}
+						if (gamesWithRemovedAchievements.length !== 0) {
+							const removedAchievementsSum = gamesWithRemovedAchievements
+								.map(x => (x.targetGame?.unlocked ?? 0) - x.sourceGame.unlocked)
+								.reduce((a, b) => a + b);
 
-					const namesHTML = gamesWithRemovedAchievements
-						.map(x => ({ name: he.escape(x.game.name ?? `Unknown App ${x.game.appid}`), url: result.tracker.getGameURL(x.game) }))
-						.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
-						.map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
-						.join(' &bull; ');
+							const namesHTML = gamesWithRemovedAchievements
+								.map(x => ({ name: he.escape(x.game.name ?? `Unknown App ${x.game.appid}`), url: result.tracker.getGameURL(x.game) }))
+								.sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
+								.map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
+								.join(' &bull; ');
 
-					const jsonGames = gamesWithMissingAchievements.map<RecoverGame>(x => ({ appid: x.sourceGame.appid, unlocked: x.sourceGame.unlocked, total: x.sourceGame.total }));
+							const jsonGames = gamesWithMissingAchievements.map<RecoverGame>(x => ({ appid: x.sourceGame.appid, unlocked: x.sourceGame.unlocked, total: x.sourceGame.total }));
 
-					html += `
+							html += `
 								<span style="color: #b33b32;">
 									✖ ${removedAchievementsSum.toLocaleString()} removed achievement${removedAchievementsSum !== 1 ? 's' : ''}
 									in ${gamesWithRemovedAchievements.length.toLocaleString()} game${gamesWithRemovedAchievements.length !== 1 ? 's' : ''}
@@ -435,12 +436,12 @@ async function findDifferences(formData: FormData, output: Element) {
 										Copy JSON
 									</a>
 								</div>`;
+						}
+					}
 				}
-			}
-		}
 
-		return html;
-	}).join('')}
+				return html;
+			}).join('')}
 		</div>`;
 
 	for (const anchor of output.querySelectorAll<HTMLAnchorElement>('a[data-copy]')) {

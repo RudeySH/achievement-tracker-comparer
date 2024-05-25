@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Achievement Tracker Comparer
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters, TrueSteamAchievements and Steam Community profiles.
-// @version 1.4.4
+// @version 1.4.5
 // @author Rudey
 // @homepage https://github.com/RudeySH/achievement-tracker-comparer#readme
 // @supportURL https://github.com/RudeySH/achievement-tracker-comparer/issues
@@ -65,6 +65,9 @@ var __webpack_exports__ = {};
 ;// CONCATENATED MODULE: external "he"
 const external_he_namespaceObject = he;
 var external_he_default = /*#__PURE__*/__webpack_require__.n(external_he_namespaceObject);
+;// CONCATENATED MODULE: external "PromisePool"
+const external_PromisePool_namespaceObject = PromisePool;
+var external_PromisePool_default = /*#__PURE__*/__webpack_require__.n(external_PromisePool_namespaceObject);
 ;// CONCATENATED MODULE: ./src/utils/utils.ts
 const iconExternalLink = '<img src="https://community.cloudflare.steamstatic.com/public/images/skin_1/iconExternalLink.gif?utm_campaign=userscript" alt="" aria-hidden="true" />';
 const domParser = new DOMParser();
@@ -233,6 +236,7 @@ class AStats extends Tracker {
 ;// CONCATENATED MODULE: ./src/trackers/completionist.ts
 
 
+
 class Completionist extends Tracker {
     constructor() {
         super(...arguments);
@@ -252,7 +256,7 @@ class Completionist extends Tracker {
         if (lastPageAnchor !== null) {
             const pageCount = parseInt(new URL(lastPageAnchor.href).searchParams.get('page'));
             const iterator = this.getStartedGamesIterator(games, url, pageCount);
-            const pool = new PromisePool(iterator, 6);
+            const pool = new (external_PromisePool_default())(iterator, 6);
             await pool.start();
         }
         return { games };
@@ -423,6 +427,7 @@ class MetaGamerScore extends Tracker {
 ;// CONCATENATED MODULE: ./src/trackers/steam.ts
 
 
+
 class Steam extends Tracker {
     constructor() {
         super(...arguments);
@@ -446,7 +451,7 @@ class Steam extends Tracker {
             ])];
         const games = [];
         const iterator = this.getStartedGamesIterator(appids, achievementShowcaseGames, completionistShowcaseGames, games);
-        const pool = new PromisePool(iterator, 6);
+        const pool = new (external_PromisePool_default())(iterator, 6);
         await pool.start();
         return { games };
     }
@@ -586,6 +591,7 @@ class SteamHunters extends Tracker {
 ;// CONCATENATED MODULE: ./src/trackers/truesteamachievements.ts
 
 
+
 class TrueSteamAchievements extends Tracker {
     constructor() {
         super(...arguments);
@@ -636,12 +642,12 @@ class TrueSteamAchievements extends Tracker {
             });
         }
         const iterator = this.setAppIdsIterator(games);
-        const pool = new PromisePool(iterator, 6);
+        const pool = new (external_PromisePool_default())(iterator, 6);
         await pool.start();
         const unsetGames = games.filter(game => game.appid === 0);
         if (unsetGames.length !== 0) {
             const iterator = this.setAppIdsSlowIterator(unsetGames);
-            const pool = new PromisePool(iterator, 6);
+            const pool = new (external_PromisePool_default())(iterator, 6);
             await pool.start();
         }
         return { games: games.filter(game => game.appid !== 0) };
@@ -678,6 +684,7 @@ class TrueSteamAchievements extends Tracker {
 
 ;// CONCATENATED MODULE: ./src/index.ts
 var _a;
+
 
 
 
@@ -957,7 +964,7 @@ async function findDifferences(formData, output) {
         };
     }
     const iterator = getMismatchedGamesIterator();
-    const pool = new PromisePool(iterator, 6);
+    const pool = new (external_PromisePool_default())(iterator, 6);
     await pool.start();
     output.innerHTML = `
 		<div class="profile_comment_area">

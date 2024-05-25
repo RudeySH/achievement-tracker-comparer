@@ -1,3 +1,4 @@
+import PromisePool from 'es6-promise-pool';
 import { Game } from '../interfaces/game';
 import { getHTML, getJSON } from '../utils/utils';
 import { Tracker } from './tracker';
