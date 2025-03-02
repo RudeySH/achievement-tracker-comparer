@@ -33,7 +33,7 @@ export async function getJSON<T = never>(url: string, details?: Partial<GM.Reque
 
 export async function getRedirectURL(url: string) {
 	const data = await xmlHttpRequest({
-		method: 'HEAD',
+		method: 'GET',
 		url,
 	});
 
