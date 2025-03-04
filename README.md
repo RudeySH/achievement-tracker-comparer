@@ -5,7 +5,6 @@ Compare achievements between
 [Exophase](https://www.exophase.com/),
 [MetaGamerScore](https://metagamerscore.com/),
 [Steam Hunters](https://steamhunters.com/profiles),
-[TrueSteamAchievements](https://truesteamachievements.com)
 and Steam Community profiles.
 
 ## Instructions

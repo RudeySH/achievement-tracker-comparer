@@ -10,7 +10,6 @@ import { MetaGamerScore } from './trackers/metagamerscore';
 import { Steam } from './trackers/steam';
 import { SteamHunters } from './trackers/steam-hunters';
 import { Tracker } from './trackers/tracker';
-import { TrueSteamAchievements } from './trackers/truesteamachievements';
 import { getDocument, groupBy, iconExternalLink, merge } from './utils/utils';
 
 declare global {
@@ -30,7 +29,6 @@ const trackers: Tracker[] = [
 	new AStats(profileData),
 	new Exophase(profileData),
 	new MetaGamerScore(profileData),
-	new TrueSteamAchievements(profileData),
 ];
 
 window.addEventListener('load', async () => {
@@ -64,14 +62,6 @@ window.addEventListener('load', async () => {
 			vertical-align: top;
 		}
 
-		.atc #atc_tsa_profile_url {
-			box-shadow: 1px 1px 1px rgb(255 255 255 / 10%);
-			font-size: x-small;
-			margin-top: 3px;
-			padding: 3px;
-			width: calc(100% - 6px);
-		}
-
 		.atc .atc_help {
 			cursor: help;
 		}
@@ -86,10 +76,6 @@ window.addEventListener('load', async () => {
 			min-height: 48px;
 			overflow-y: scroll;
 			resize: vertical;
-		}
-
-		.atc .profile_comment_area {
-			margin-top: 0;
 		}
 
 		@media screen and (max-width: 910px) {
@@ -131,11 +117,9 @@ window.addEventListener('load', async () => {
 			`<a class="whiteLink" href="${tracker.getProfileURL()}" target="_blank">
 											${iconExternalLink}
 										</a>`}
-									${tracker.signInLink ? '<small class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">1</small>' : ''}
-									${tracker.ownProfileOnly ? '<small class="atc_help" title="Own profile only" aria-describedby="atc_own_profile_only">2</small>' : ''}
+									${tracker.signInLink ? '<small class="atc_help" title="Sign-in required" aria-describedby="atc_sign_in_required">*</small>' : ''}
+									${tracker.ownProfileOnly ? '<small class="atc_help" title="Own profile only" aria-describedby="atc_own_profile_only">**</small>' : ''}
 								</div>`).join('')}
-							<input type="text" name="tsaProfileUrl" id="atc_tsa_profile_url" placeholder="Enter the TSA profile URL..." required hidden
-								pattern="[^/?#]+|https://truesteamachievements\\.com/gamer/[^/?#]+" />
 							<p ${isOwnProfile ? '' : 'hidden'}>
 								<label>
 									<input type="checkbox" name="trackerName" value="Steam" />
@@ -144,11 +128,11 @@ window.addEventListener('load', async () => {
 							</p>
 							<p>
 								<small id="atc_sign_in_required">
-									1. Sign-in required
+									* Sign-in required
 								</small>
 								&nbsp;
 								<small id="atc_own_profile_only">
-									2. Own profile only
+									** Own profile only
 								</small>
 							</p>
 							<p>
@@ -175,29 +159,11 @@ window.addEventListener('load', async () => {
 
 	const output = node.querySelector('#atc_output')!;
 
-	const tsaCheckbox = checkboxes.find(x => x.value === 'TrueSteamAchievements')!;
-	const tsaProfileUrlInput = form.querySelector<HTMLInputElement>('#atc_tsa_profile_url')!;
-	const tsaProfileUrlKey = profileData.steamid + '/tsaProfileUrl';
-
-	tsaCheckbox.addEventListener('input', () => {
-		if (tsaCheckbox.checked) {
-			tsaProfileUrlInput.hidden = false;
-		} else {
-			tsaProfileUrlInput.hidden = true;
-		}
-	});
-
 	const updateForm = async () => {
 		const formData = new FormData(form);
 		const trackerNames = formData.getAll('trackerName');
-		button.disabled = trackerNames.length < 2 || !tsaProfileUrlInput.hidden && !tsaProfileUrlInput.validity.valid;
+		button.disabled = trackerNames.length < 2;
 		counter.textContent = trackerNames.length.toString();
-
-		try {
-			await GM.setValue(tsaProfileUrlKey, tsaProfileUrlInput.value);
-		} catch (e) {
-			console.error(e);
-		}
 	};
 
 	form.addEventListener('change', updateForm);
@@ -229,12 +195,6 @@ window.addEventListener('load', async () => {
 	});
 
 	container.appendChild(node);
-
-	try {
-		tsaProfileUrlInput.value = await GM.getValue(tsaProfileUrlKey, '');
-	} catch (e) {
-		console.error(e);
-	}
 });
 
 async function findDifferences(formData: FormData, output: Element) {
@@ -333,7 +293,7 @@ async function findDifferences(formData: FormData, output: Element) {
 	await pool.start();
 
 	output.innerHTML = `
-		<div class="profile_comment_area">
+		<div>
 			${results.sort((a, b) => a.tracker.name.toUpperCase() < b.tracker.name.toUpperCase() ? -1 : 1).filter(result => result.tracker.name !== 'Steam').map(result => {
 				let html = `
 					<div style="margin-top: 1em;">

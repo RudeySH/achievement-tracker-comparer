@@ -1,4 +1,4 @@
-declare module "es6-promise-pool" {
+declare module 'es6-promise-pool' {
 	interface Options<A> {
 		promise?: PromiseLike<A>
 	}

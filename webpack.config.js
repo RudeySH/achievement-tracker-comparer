@@ -41,7 +41,6 @@ var config = {
           'exophase.com',
           'metagamerscore.com',
           'steamhunters.com',
-          'truesteamachievements.com',
         ],
         grant: [
           'GM.getValue',
