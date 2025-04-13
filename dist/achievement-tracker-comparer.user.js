@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Achievement Tracker Comparer
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
-// @version 1.4.7
+// @version 1.4.8
 // @author Rudey
 // @homepage https://github.com/RudeySH/achievement-tracker-comparer#readme
 // @supportURL https://github.com/RudeySH/achievement-tracker-comparer/issues
@@ -196,14 +196,14 @@ class AStats extends Tracker {
         this.name = 'AStats';
     }
     getProfileURL() {
-        return `https://astats.astats.nl/astats/User_Info.php?steamID64=${this.profileData.steamid}&utm_campaign=userscript`;
+        return `https://www.astats.nl/astats/User_Info.php?steamID64=${this.profileData.steamid}&utm_campaign=userscript`;
     }
     getGameURL(game) {
-        return `https://astats.astats.nl/astats/Steam_Game_Info.php?AppID=${game.appid}&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`;
+        return `https://www.astats.nl/astats/Steam_Game_Info.php?AppID=${game.appid}&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`;
     }
     async getStartedGames() {
         const games = [];
-        const doc = await getDocument(`https://astats.astats.nl/astats/User_Games.php?Limit=0&Hidden=1&AchievementsOnly=1&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`);
+        const doc = await getDocument(`https://www.astats.nl/astats/User_Games.php?Limit=0&Hidden=1&AchievementsOnly=1&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`);
         const rows = doc.querySelectorAll('table:not(.Pager) tbody tr');
         for (const row of rows) {
             const validUnlocked = parseInt(row.cells[2].textContent);

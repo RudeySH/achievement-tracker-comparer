@@ -1,6 +1,6 @@
 # Achievement Tracker Comparer
 Compare achievements between
-[AStats](https://astats.astats.nl/astats/),
+[AStats](https://www.astats.nl/astats/),
 [completionist.me](https://completionist.me/),
 [Exophase](https://www.exophase.com/),
 [MetaGamerScore](https://metagamerscore.com/),

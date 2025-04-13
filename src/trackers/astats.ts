@@ -6,16 +6,16 @@ export class AStats extends Tracker {
 	name = 'AStats';
 
 	override getProfileURL() {
-		return `https://astats.astats.nl/astats/User_Info.php?steamID64=${this.profileData.steamid}&utm_campaign=userscript`;
+		return `https://www.astats.nl/astats/User_Info.php?steamID64=${this.profileData.steamid}&utm_campaign=userscript`;
 	}
 
 	override getGameURL(game: Game) {
-		return `https://astats.astats.nl/astats/Steam_Game_Info.php?AppID=${game.appid}&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`;
+		return `https://www.astats.nl/astats/Steam_Game_Info.php?AppID=${game.appid}&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`;
 	}
 
 	override async getStartedGames() {
 		const games: Game[] = [];
-		const doc = await getDocument(`https://astats.astats.nl/astats/User_Games.php?Limit=0&Hidden=1&AchievementsOnly=1&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`);
+		const doc = await getDocument(`https://www.astats.nl/astats/User_Games.php?Limit=0&Hidden=1&AchievementsOnly=1&SteamID64=${this.profileData.steamid}&utm_campaign=userscript`);
 		const rows = doc.querySelectorAll<HTMLTableRowElement>('table:not(.Pager) tbody tr');
 
 		for (const row of rows) {
