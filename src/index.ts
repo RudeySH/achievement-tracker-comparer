@@ -228,7 +228,7 @@ async function findDifferences(formData: FormData, output: Element) {
 		.map(group => group.key);
 
 	const mismatchedGames: Game[] = [];
-	const steamResult = results.find(result => result.tracker instanceof Steam);
+	const steamResult = results.find((result): result is typeof result & { tracker: Steam } => result.tracker instanceof Steam);
 
 	function* getMismatchedGamesIterator() {
 		for (const appid of mismatchedAppids) {
@@ -244,6 +244,11 @@ async function findDifferences(formData: FormData, output: Element) {
 		}
 
 		const trackerGame = results.flatMap(r => r.games).find(game => game.appid === appid)!;
+
+		if (steamResult?.tracker.bannedAppids.has(appid)) {
+			return trackerGame;
+		}
+
 		const counts = await Steam.getStatsPageCounts(profileData, appid);
 
 		if (counts === undefined) {

@@ -7,6 +7,8 @@ import { Tracker } from './tracker';
 export class Steam extends Tracker {
 	name = 'Steam';
 
+	readonly bannedAppids = new Set<number>();
+
 	override getProfileURL() {
 		return this.profileData.url.substring(0, this.profileData.url.length - 1);
 	}
@@ -48,25 +50,25 @@ export class Steam extends Tracker {
 		const allGroupsCompleted = completionistShowcaseGame !== undefined
 			&& completionistShowcaseGame.base_groups_completed === completionistShowcaseGame.base_groups
 			&& completionistShowcaseGame.dlc_groups_completed === completionistShowcaseGame.dlc_groups;
-		const completedAchievementCount = allGroupsCompleted
-			? completionistShowcaseGame.achievements_base + completionistShowcaseGame.achievements_dlc
-			: undefined;
 
-		let { unlocked, total } = await this.getFavoriteGameShowcaseCounts(appid);
-		total ??= completedAchievementCount;
+		let unlocked: number | undefined;
+		let total: number | undefined;
 
-		if (unlocked === undefined) {
-			if (allGroupsCompleted) {
-				unlocked = completedAchievementCount!;
-			} else {
+		if (allGroupsCompleted) {
+			unlocked = total = completionistShowcaseGame.achievements_base + completionistShowcaseGame.achievements_dlc;
+		} else {
+			const favoriteGame = await this.getFavoriteGameShowcaseCounts(appid);
+			unlocked = favoriteGame.unlocked;
+			total = favoriteGame.total;
+
+			if (favoriteGame.isEmptySlot) {
+				this.bannedAppids.add(appid);
+			}
+
+			if (unlocked === undefined) {
 				unlocked = await this.getAchievementShowcaseCount(appid);
 
-				// Games in the showcase lists nearly always have unlocked achievements, so a 0 for them is suspect.
-				if (unlocked === 0 && (achievementShowcaseGame !== undefined || completionistShowcaseGame !== undefined)) {
-					return undefined;
-				}
-
-				if (unlocked === 9999) {
+				if (unlocked === 0 || unlocked === 9999) {
 					return undefined;
 				}
 			}
@@ -97,16 +99,18 @@ export class Steam extends Tracker {
 		const template = document.createElement('template');
 		template.innerHTML = await response.text();
 
+		const isEmptySlot = template.content.querySelector('.showcase_slot.openslot') !== null;
 		const summary = template.content.querySelector('.game_info_achievement_summary a');
 		const match = summary?.textContent?.match(/([\d.,\s]+)\/([\d.,\s]+)/);
 
 		if (match == null) {
-			return { unlocked: undefined, total: undefined };
+			return { unlocked: undefined, total: undefined, isEmptySlot };
 		}
 
 		return {
 			unlocked: parseInt(match[1].replace(/\D/g, '')),
 			total: parseInt(match[2].replace(/\D/g, '')),
+			isEmptySlot,
 		};
 	}
 

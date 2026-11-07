@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Achievement Tracker Comparer
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
-// @version 1.5.0-beta.2
+// @version 1.5.0-beta.3
 // @author Rudey
 // @homepage https://github.com/RudeySH/achievement-tracker-comparer#readme
 // @supportURL https://github.com/RudeySH/achievement-tracker-comparer/issues
@@ -431,6 +431,7 @@ class Steam extends Tracker {
     constructor() {
         super(...arguments);
         this.name = 'Steam';
+        this.bannedAppids = new Set();
     }
     getProfileURL() {
         return this.profileData.url.substring(0, this.profileData.url.length - 1);
@@ -465,22 +466,21 @@ class Steam extends Tracker {
         const allGroupsCompleted = completionistShowcaseGame !== undefined
             && completionistShowcaseGame.base_groups_completed === completionistShowcaseGame.base_groups
             && completionistShowcaseGame.dlc_groups_completed === completionistShowcaseGame.dlc_groups;
-        const completedAchievementCount = allGroupsCompleted
-            ? completionistShowcaseGame.achievements_base + completionistShowcaseGame.achievements_dlc
-            : undefined;
-        let { unlocked, total } = await this.getFavoriteGameShowcaseCounts(appid);
-        total !== null && total !== void 0 ? total : (total = completedAchievementCount);
-        if (unlocked === undefined) {
-            if (allGroupsCompleted) {
-                unlocked = completedAchievementCount;
+        let unlocked;
+        let total;
+        if (allGroupsCompleted) {
+            unlocked = total = completionistShowcaseGame.achievements_base + completionistShowcaseGame.achievements_dlc;
+        }
+        else {
+            const favoriteGame = await this.getFavoriteGameShowcaseCounts(appid);
+            unlocked = favoriteGame.unlocked;
+            total = favoriteGame.total;
+            if (favoriteGame.isEmptySlot) {
+                this.bannedAppids.add(appid);
             }
-            else {
+            if (unlocked === undefined) {
                 unlocked = await this.getAchievementShowcaseCount(appid);
-                // Games in the showcase lists nearly always have unlocked achievements, so a 0 for them is suspect.
-                if (unlocked === 0 && (achievementShowcaseGame !== undefined || completionistShowcaseGame !== undefined)) {
-                    return undefined;
-                }
-                if (unlocked === 9999) {
+                if (unlocked === 0 || unlocked === 9999) {
                     return undefined;
                 }
             }
@@ -505,14 +505,16 @@ class Steam extends Tracker {
         });
         const template = document.createElement('template');
         template.innerHTML = await response.text();
+        const isEmptySlot = template.content.querySelector('.showcase_slot.openslot') !== null;
         const summary = template.content.querySelector('.game_info_achievement_summary a');
         const match = (_a = summary === null || summary === void 0 ? void 0 : summary.textContent) === null || _a === void 0 ? void 0 : _a.match(/([\d.,\s]+)\/([\d.,\s]+)/);
         if (match == null) {
-            return { unlocked: undefined, total: undefined };
+            return { unlocked: undefined, total: undefined, isEmptySlot };
         }
         return {
             unlocked: parseInt(match[1].replace(/\D/g, '')),
             total: parseInt(match[2].replace(/\D/g, '')),
+            isEmptySlot,
         };
     }
     async getAchievementShowcaseCount(appid) {
@@ -818,7 +820,7 @@ async function findDifferences(formData, output) {
     })
         .map(group => group.key);
     const mismatchedGames = [];
-    const steamResult = results.find(result => result.tracker instanceof Steam);
+    const steamResult = results.find((result) => result.tracker instanceof Steam);
     function* getMismatchedGamesIterator() {
         for (const appid of mismatchedAppids) {
             yield getMismatchedGame(appid).then(game => mismatchedGames.push(game));
@@ -830,6 +832,9 @@ async function findDifferences(formData, output) {
             return game;
         }
         const trackerGame = results.flatMap(r => r.games).find(game => game.appid === appid);
+        if (steamResult === null || steamResult === void 0 ? void 0 : steamResult.tracker.bannedAppids.has(appid)) {
+            return trackerGame;
+        }
         const counts = await Steam.getStatsPageCounts(profileData, appid);
         if (counts === undefined) {
             return trackerGame;
