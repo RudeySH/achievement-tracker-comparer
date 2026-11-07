@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Achievement Tracker Comparer
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
-// @version 1.4.8
+// @version 1.5.0-beta.1
 // @author Rudey
 // @homepage https://github.com/RudeySH/achievement-tracker-comparer#readme
 // @supportURL https://github.com/RudeySH/achievement-tracker-comparer/issues
@@ -449,63 +449,68 @@ class Steam extends Tracker {
                 ...completionistShowcaseGames.map(game => game.appid),
             ])];
         const games = [];
-        const iterator = this.getStartedGamesIterator(appids, achievementShowcaseGames, completionistShowcaseGames, games);
-        const pool = new (external_PromisePool_default())(iterator, 6);
-        await pool.start();
-        return { games };
-    }
-    *getStartedGamesIterator(appids, achievementShowcaseGames, completionistShowcaseGames, games) {
-        for (const appid of appids) {
-            yield this.getStartedGame(appid, achievementShowcaseGames, completionistShowcaseGames).then(game => games.push(game));
+        const getStartedGame = (appid) => this.getStartedGame(appid, achievementShowcaseGames, completionistShowcaseGames);
+        function* getStartedGamesIterator() {
+            for (const appid of appids) {
+                yield getStartedGame(appid).then(game => games.push(game));
+            }
         }
+        await new (external_PromisePool_default())(getStartedGamesIterator(), 6).start();
+        return { games: games.filter((x) => x !== undefined) };
     }
     async getStartedGame(appid, achievementShowcaseGames, completionistShowcaseGames) {
         var _a;
-        if (appid === 247750) {
-            const name = 'The Stanley Parable Demo';
-            const unlocked = await this.getAchievementShowcaseCount(appid);
-            const isPerfect = unlocked === 1;
-            return { appid, name, unlocked, total: 1, isPerfect, isCompleted: isPerfect, isCounted: isPerfect, isTrusted: true };
-        }
+        const achievementShowcaseGame = achievementShowcaseGames.find(game => game.appid === appid);
         const completionistShowcaseGame = completionistShowcaseGames.find(game => game.appid === appid);
+        const allGroupsCompleted = completionistShowcaseGame !== undefined
+            && completionistShowcaseGame.base_groups_completed === completionistShowcaseGame.base_groups
+            && completionistShowcaseGame.dlc_groups_completed === completionistShowcaseGame.dlc_groups;
+        const completedAchievementCount = allGroupsCompleted
+            ? completionistShowcaseGame.achievements_base + completionistShowcaseGame.achievements_dlc
+            : undefined;
         let { unlocked, total } = await this.getFavoriteGameShowcaseCounts(appid);
-        total !== null && total !== void 0 ? total : (total = completionistShowcaseGame === null || completionistShowcaseGame === void 0 ? void 0 : completionistShowcaseGame.num_achievements);
+        total !== null && total !== void 0 ? total : (total = completedAchievementCount);
         if (unlocked === undefined) {
             unlocked = await this.getAchievementShowcaseCount(appid);
-            if (unlocked === 9999 && completionistShowcaseGame !== undefined) {
-                unlocked = completionistShowcaseGame.num_achievements;
+            if (unlocked === 0 && achievementShowcaseGame === undefined && completionistShowcaseGame === undefined) {
+                return undefined;
+            }
+            if (unlocked === 9999) {
+                if (!allGroupsCompleted) {
+                    return undefined;
+                }
+                unlocked = completedAchievementCount;
             }
         }
-        const achievementShowcaseGame = achievementShowcaseGames.find(game => game.appid === appid);
         const name = (_a = achievementShowcaseGame === null || achievementShowcaseGame === void 0 ? void 0 : achievementShowcaseGame.name) !== null && _a !== void 0 ? _a : completionistShowcaseGame === null || completionistShowcaseGame === void 0 ? void 0 : completionistShowcaseGame.name;
         const isPerfect = total !== undefined ? unlocked >= total : undefined;
         const isCompleted = isPerfect ? true : undefined;
-        const isCounted = completionistShowcaseGame !== undefined;
+        const isCounted = allGroupsCompleted;
         const isTrusted = achievementShowcaseGame !== undefined;
         return { appid, name, unlocked, total, isPerfect, isCompleted, isCounted, isTrusted };
     }
     async getFavoriteGameShowcaseCounts(appid) {
+        var _a;
         const url = `${this.getProfileURL()}/ajaxpreviewshowcase`;
         const body = new FormData();
-        body.append('customization_type', '6');
+        body.append('customization_type', '6'); // Favorite Game showcase
         body.append('sessionid', unsafeWindow.g_sessionID);
         body.append('slot_data', `{"0":{"appid":${appid}}}`);
         const response = await retry(() => {
             console.debug(`POST ${url}`);
             return fetch(url, { method: 'POST', body, credentials: 'same-origin' });
         });
-        const text = await response.text();
         const template = document.createElement('template');
-        template.innerHTML = text.replace(/src="[^"]+"/g, '');
-        const ellipsis = template.content.querySelector('.ellipsis');
-        let unlocked = undefined;
-        let total = undefined;
-        if (ellipsis !== null) {
-            const split = ellipsis.textContent.split(/\D+/).filter(s => s !== '');
-            unlocked = parseInt(split[0]);
-            total = parseInt(split[1]);
+        template.innerHTML = await response.text();
+        const summary = template.content.querySelector('.game_info_achievement_summary a');
+        const match = (_a = summary === null || summary === void 0 ? void 0 : summary.textContent) === null || _a === void 0 ? void 0 : _a.match(/([\d.,\s]+)\/([\d.,\s]+)/);
+        if (match == null) {
+            return { unlocked: undefined, total: undefined };
         }
-        return { unlocked, total };
+        return {
+            unlocked: parseInt(match[1].replace(/\D/g, '')),
+            total: parseInt(match[2].replace(/\D/g, '')),
+        };
     }
     async getAchievementShowcaseCount(appid) {
         var _a;
@@ -543,6 +548,36 @@ class Steam extends Tracker {
             }
         }
         return messages;
+    }
+    static async getStatsPageCounts(profileData, appid) {
+        const url = `${profileData.url}stats/${appid}/achievements?l=english`;
+        try {
+            const response = await retry(() => {
+                console.debug(`GET ${url}`);
+                return fetch(url, { credentials: 'same-origin' });
+            });
+            // Valid stats pages redirect too (to /achievements/{appid}), but removed apps redirect to the profile itself.
+            if (!new RegExp(`/(achievements/${appid}|stats/${appid}/achievements)/?$`).test(new URL(response.url).pathname)) {
+                return undefined;
+            }
+            const doc = domParser.parseFromString(await response.text(), 'text/html');
+            const ssrData = JSON.parse(doc.getElementById('valve-ssr-data').textContent);
+            const queries = JSON.parse(ssrData.renderContext.queryData).queries;
+            const findData = (type) => { var _a; return (_a = queries.find(q => q.queryKey[0] === 'achievements' && q.queryKey[1] === appid && q.queryKey[2] === type)) === null || _a === void 0 ? void 0 : _a.state.data; };
+            const userAchievements = findData('user_achievements');
+            const schema = findData('schema_v2');
+            if (userAchievements === undefined || schema === undefined) {
+                return undefined;
+            }
+            return {
+                unlocked: Object.values(userAchievements.achievements).filter(a => a.unlocked).length,
+                total: schema.groups.reduce((sum, group) => sum + group.achievements.length, 0),
+            };
+        }
+        catch (e) {
+            console.error(e);
+            return undefined;
+        }
     }
 }
 
@@ -787,42 +822,21 @@ async function findDifferences(formData, output) {
         }
     }
     async function getMismatchedGame(appid) {
-        var _a;
-        let game = steamResult === null || steamResult === void 0 ? void 0 : steamResult.games.find(game => game.appid === appid);
+        const game = steamResult === null || steamResult === void 0 ? void 0 : steamResult.games.find(game => game.appid === appid);
         if (game !== undefined) {
             return game;
         }
-        let doc = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'X-ValveUserAgent': 'panorama' } });
-        const match = doc.body.innerHTML.match(/g_rgAchievements = ({.*});/);
-        if (match !== null) {
-            const g_rgAchievements = JSON.parse(match[1]);
-            const isPerfect = g_rgAchievements.totalClosed >= g_rgAchievements.total;
-            return {
-                appid,
-                unlocked: g_rgAchievements.totalClosed,
-                total: g_rgAchievements.total,
-                name: (_a = doc.body.innerHTML.match(/'SetContentTitle', '(.*) Achievements'/)) === null || _a === void 0 ? void 0 : _a[1],
-                isPerfect,
-                isCompleted: isPerfect ? true : undefined,
-                isCounted: isPerfect,
-                isTrusted: undefined,
-            };
+        const trackerGame = results.flatMap(r => r.games).find(game => game.appid === appid);
+        const counts = await Steam.getStatsPageCounts(profileData, appid);
+        if (counts === undefined) {
+            return trackerGame;
         }
-        doc = await getDocument(`https://steamcommunity.com/stats/${appid}/achievements`);
-        const total = doc.querySelectorAll('.achieveRow').length;
-        const games = results.flatMap(r => r.games).filter(game => game.appid === appid);
-        game = games.find(game => game.total === total);
-        if (game !== undefined) {
-            return game;
-        }
-        game = games[0];
-        const unlocked = Math.min(game.unlocked, total);
-        const isPerfect = unlocked >= total && unlocked !== 0;
+        const isPerfect = counts.unlocked >= counts.total && counts.unlocked !== 0;
         return {
             appid,
-            name: game.name,
-            unlocked,
-            total,
+            name: trackerGame.name,
+            unlocked: counts.unlocked,
+            total: counts.total,
             isPerfect,
             isCompleted: isPerfect ? true : undefined,
             isCounted: isPerfect,

@@ -1,5 +1,6 @@
 import PromisePool from 'es6-promise-pool';
 import { Game } from '../interfaces/game';
+import { ProfileData } from '../interfaces/profile-data';
 import { domParser, retry } from '../utils/utils';
 import { Tracker } from './tracker';
 
@@ -26,46 +27,54 @@ export class Steam extends Tracker {
 			...completionistShowcaseGames.map(game => game.appid),
 		])];
 
-		const games: Game[] = [];
-		const iterator = this.getStartedGamesIterator(appids, achievementShowcaseGames, completionistShowcaseGames, games);
-		const pool = new PromisePool(iterator, 6);
+		const games: (Game | undefined)[] = [];
 
-		await pool.start();
+		const getStartedGame = (appid: number) => this.getStartedGame(appid, achievementShowcaseGames, completionistShowcaseGames);
 
-		return { games };
-	}
-
-	* getStartedGamesIterator(appids: number[], achievementShowcaseGames: AchievementShowcaseGame[], completionistShowcaseGames: CompletionistShowcaseGame[], games: Game[]) {
-		for (const appid of appids) {
-			yield this.getStartedGame(appid, achievementShowcaseGames, completionistShowcaseGames).then(game => games.push(game));
-		}
-	}
-
-	async getStartedGame(appid: number, achievementShowcaseGames: AchievementShowcaseGame[], completionistShowcaseGames: CompletionistShowcaseGame[]): Promise<Game> {
-		if (appid === 247750) {
-			const name = 'The Stanley Parable Demo';
-			const unlocked = await this.getAchievementShowcaseCount(appid);
-			const isPerfect = unlocked === 1;
-			return { appid, name, unlocked, total: 1, isPerfect, isCompleted: isPerfect, isCounted: isPerfect, isTrusted: true };
+		function* getStartedGamesIterator() {
+			for (const appid of appids) {
+				yield getStartedGame(appid).then(game => games.push(game));
+			}
 		}
 
+		await new PromisePool(getStartedGamesIterator(), 6).start();
+
+		return { games: games.filter((x): x is Game => x !== undefined) };
+	}
+
+	async getStartedGame(appid: number, achievementShowcaseGames: AchievementShowcaseGame[], completionistShowcaseGames: CompletionistShowcaseGame[]): Promise<Game | undefined> {
+		const achievementShowcaseGame = achievementShowcaseGames.find(game => game.appid === appid);
 		const completionistShowcaseGame = completionistShowcaseGames.find(game => game.appid === appid);
+		const allGroupsCompleted = completionistShowcaseGame !== undefined
+			&& completionistShowcaseGame.base_groups_completed === completionistShowcaseGame.base_groups
+			&& completionistShowcaseGame.dlc_groups_completed === completionistShowcaseGame.dlc_groups;
+		const completedAchievementCount = allGroupsCompleted
+			? completionistShowcaseGame.achievements_base + completionistShowcaseGame.achievements_dlc
+			: undefined;
+
 		let { unlocked, total } = await this.getFavoriteGameShowcaseCounts(appid);
-		total ??= completionistShowcaseGame?.num_achievements;
+		total ??= completedAchievementCount;
 
 		if (unlocked === undefined) {
 			unlocked = await this.getAchievementShowcaseCount(appid);
 
-			if (unlocked === 9999 && completionistShowcaseGame !== undefined) {
-				unlocked = completionistShowcaseGame.num_achievements;
+			if (unlocked === 0 && achievementShowcaseGame === undefined && completionistShowcaseGame === undefined) {
+				return undefined;
+			}
+
+			if (unlocked === 9999) {
+				if (!allGroupsCompleted) {
+					return undefined;
+				}
+
+				unlocked = completedAchievementCount!;
 			}
 		}
 
-		const achievementShowcaseGame = achievementShowcaseGames.find(game => game.appid === appid);
 		const name = achievementShowcaseGame?.name ?? completionistShowcaseGame?.name;
 		const isPerfect = total !== undefined ? unlocked >= total : undefined;
 		const isCompleted = isPerfect ? true : undefined;
-		const isCounted = completionistShowcaseGame !== undefined;
+		const isCounted = allGroupsCompleted;
 		const isTrusted = achievementShowcaseGame !== undefined;
 
 		return { appid, name, unlocked, total, isPerfect, isCompleted, isCounted, isTrusted };
@@ -75,7 +84,7 @@ export class Steam extends Tracker {
 		const url = `${this.getProfileURL()}/ajaxpreviewshowcase`;
 
 		const body = new FormData();
-		body.append('customization_type', '6');
+		body.append('customization_type', '6'); // Favorite Game showcase
 		body.append('sessionid', unsafeWindow.g_sessionID);
 		body.append('slot_data', `{"0":{"appid":${appid}}}`);
 
@@ -84,23 +93,20 @@ export class Steam extends Tracker {
 			return fetch(url, { method: 'POST', body, credentials: 'same-origin' });
 		});
 
-		const text = await response.text();
-
 		const template = document.createElement('template');
-		template.innerHTML = text.replace(/src="[^"]+"/g, '');
+		template.innerHTML = await response.text();
 
-		const ellipsis = template.content.querySelector('.ellipsis');
+		const summary = template.content.querySelector('.game_info_achievement_summary a');
+		const match = summary?.textContent?.match(/([\d.,\s]+)\/([\d.,\s]+)/);
 
-		let unlocked = undefined;
-		let total = undefined;
-
-		if (ellipsis !== null) {
-			const split = ellipsis.textContent!.split(/\D+/).filter(s => s !== '');
-			unlocked = parseInt(split[0]);
-			total = parseInt(split[1]);
+		if (match == null) {
+			return { unlocked: undefined, total: undefined };
 		}
 
-		return { unlocked, total };
+		return {
+			unlocked: parseInt(match[1].replace(/\D/g, '')),
+			total: parseInt(match[2].replace(/\D/g, '')),
+		};
 	}
 
 	async getAchievementShowcaseCount(appid: number) {
@@ -148,6 +154,42 @@ export class Steam extends Tracker {
 
 		return messages;
 	}
+
+	static async getStatsPageCounts(profileData: ProfileData, appid: number) {
+		const url = `${profileData.url}stats/${appid}/achievements?l=english`;
+
+		try {
+			const response = await retry(() => {
+				console.debug(`GET ${url}`);
+				return fetch(url, { credentials: 'same-origin' });
+			});
+
+			// Valid stats pages redirect too (to /achievements/{appid}), but removed apps redirect to the profile itself.
+			if (!new RegExp(`/(achievements/${appid}|stats/${appid}/achievements)/?$`).test(new URL(response.url).pathname)) {
+				return undefined;
+			}
+
+			const doc = domParser.parseFromString(await response.text(), 'text/html');
+			const ssrData: { renderContext: { queryData: string } } = JSON.parse(doc.getElementById('valve-ssr-data')!.textContent!);
+			const queries: { queryKey: unknown[], state: { data: unknown } }[] = JSON.parse(ssrData.renderContext.queryData).queries;
+			const findData = <T>(type: string) => queries.find(q => q.queryKey[0] === 'achievements' && q.queryKey[1] === appid && q.queryKey[2] === type)?.state.data as T | undefined;
+
+			const userAchievements = findData<{ achievements: { [key: string]: { unlocked: boolean } } }>('user_achievements');
+			const schema = findData<{ groups: { achievements: unknown[] }[] }>('schema_v2');
+
+			if (userAchievements === undefined || schema === undefined) {
+				return undefined;
+			}
+
+			return {
+				unlocked: Object.values(userAchievements.achievements).filter(a => a.unlocked).length,
+				total: schema.groups.reduce((sum, group) => sum + group.achievements.length, 0),
+			};
+		} catch (e) {
+			console.error(e);
+			return undefined;
+		}
+	}
 }
 
 interface AchievementShowcaseGame {
@@ -158,5 +200,10 @@ interface AchievementShowcaseGame {
 interface CompletionistShowcaseGame {
 	appid: number;
 	name: string;
-	num_achievements: number;
+	base_groups: number;
+	base_groups_completed: number;
+	dlc_groups: number;
+	dlc_groups_completed: number;
+	achievements_base: number;
+	achievements_dlc: number;
 }

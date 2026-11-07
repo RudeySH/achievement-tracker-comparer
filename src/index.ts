@@ -10,7 +10,7 @@ import { MetaGamerScore } from './trackers/metagamerscore';
 import { Steam } from './trackers/steam';
 import { SteamHunters } from './trackers/steam-hunters';
 import { Tracker } from './trackers/tracker';
-import { getDocument, groupBy, iconExternalLink, merge } from './utils/utils';
+import { groupBy, iconExternalLink, merge } from './utils/utils';
 
 declare global {
 	interface Window {
@@ -237,50 +237,26 @@ async function findDifferences(formData: FormData, output: Element) {
 	}
 
 	async function getMismatchedGame(appid: number) {
-		let game = steamResult?.games.find(game => game.appid === appid);
+		const game = steamResult?.games.find(game => game.appid === appid);
 
 		if (game !== undefined) {
 			return game;
 		}
 
-		let doc = await getDocument(`${unsafeWindow.g_rgProfileData.url}stats/${appid}/achievements?l=english`, { headers: { 'X-ValveUserAgent': 'panorama' } });
-		const match = doc.body.innerHTML.match(/g_rgAchievements = ({.*});/);
+		const trackerGame = results.flatMap(r => r.games).find(game => game.appid === appid)!;
+		const counts = await Steam.getStatsPageCounts(profileData, appid);
 
-		if (match !== null) {
-			const g_rgAchievements: { total: number; totalClosed: number; } = JSON.parse(match[1]);
-			const isPerfect = g_rgAchievements.totalClosed >= g_rgAchievements.total;
-
-			return {
-				appid,
-				unlocked: g_rgAchievements.totalClosed,
-				total: g_rgAchievements.total,
-				name: doc.body.innerHTML.match(/'SetContentTitle', '(.*) Achievements'/)?.[1],
-				isPerfect,
-				isCompleted: isPerfect ? true : undefined,
-				isCounted: isPerfect,
-				isTrusted: undefined,
-			};
+		if (counts === undefined) {
+			return trackerGame;
 		}
 
-		doc = await getDocument(`https://steamcommunity.com/stats/${appid}/achievements`);
-		const total = doc.querySelectorAll('.achieveRow').length;
-
-		const games = results.flatMap(r => r.games).filter(game => game.appid === appid)!;
-		game = games.find(game => game.total === total);
-
-		if (game !== undefined) {
-			return game;
-		}
-
-		game = games[0];
-		const unlocked = Math.min(game.unlocked, total);
-		const isPerfect = unlocked >= total && unlocked !== 0;
+		const isPerfect = counts.unlocked >= counts.total && counts.unlocked !== 0;
 
 		return {
 			appid,
-			name: game.name,
-			unlocked,
-			total,
+			name: trackerGame.name,
+			unlocked: counts.unlocked,
+			total: counts.total,
 			isPerfect,
 			isCompleted: isPerfect ? true : undefined,
 			isCounted: isPerfect,
