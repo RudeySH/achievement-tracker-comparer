@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Achievement Tracker Comparer
 // @description Compare achievements between AStats, completionist.me, Exophase, MetaGamerScore, Steam Hunters and Steam Community profiles.
-// @version 1.5.0-beta.1
+// @version 1.5.0-beta.2
 // @author Rudey
 // @homepage https://github.com/RudeySH/achievement-tracker-comparer#readme
 // @supportURL https://github.com/RudeySH/achievement-tracker-comparer/issues
@@ -471,15 +471,18 @@ class Steam extends Tracker {
         let { unlocked, total } = await this.getFavoriteGameShowcaseCounts(appid);
         total !== null && total !== void 0 ? total : (total = completedAchievementCount);
         if (unlocked === undefined) {
-            unlocked = await this.getAchievementShowcaseCount(appid);
-            if (unlocked === 0 && achievementShowcaseGame === undefined && completionistShowcaseGame === undefined) {
-                return undefined;
+            if (allGroupsCompleted) {
+                unlocked = completedAchievementCount;
             }
-            if (unlocked === 9999) {
-                if (!allGroupsCompleted) {
+            else {
+                unlocked = await this.getAchievementShowcaseCount(appid);
+                // Games in the showcase lists nearly always have unlocked achievements, so a 0 for them is suspect.
+                if (unlocked === 0 && (achievementShowcaseGame !== undefined || completionistShowcaseGame !== undefined)) {
                     return undefined;
                 }
-                unlocked = completedAchievementCount;
+                if (unlocked === 9999) {
+                    return undefined;
+                }
             }
         }
         const name = (_a = achievementShowcaseGame === null || achievementShowcaseGame === void 0 ? void 0 : achievementShowcaseGame.name) !== null && _a !== void 0 ? _a : completionistShowcaseGame === null || completionistShowcaseGame === void 0 ? void 0 : completionistShowcaseGame.name;
@@ -927,7 +930,7 @@ async function findDifferences(formData, output) {
                         .sort((a, b) => a.name.toUpperCase() < b.name.toUpperCase() ? -1 : 1)
                         .map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
                         .join(' &bull; ');
-                    const jsonGames = gamesWithMissingAchievements.map(x => ({ appid: x.sourceGame.appid, unlocked: x.sourceGame.unlocked, total: x.sourceGame.total }));
+                    const jsonGames = gamesWithRemovedAchievements.map(x => ({ appid: x.sourceGame.appid, unlocked: x.sourceGame.unlocked, total: x.sourceGame.total }));
                     html += `
 								<span style="color: #b33b32;">
 									✖ ${removedAchievementsSum.toLocaleString()} removed achievement${removedAchievementsSum !== 1 ? 's' : ''}

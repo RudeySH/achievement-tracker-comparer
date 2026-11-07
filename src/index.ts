@@ -353,7 +353,7 @@ async function findDifferences(formData: FormData, output: Element) {
 								.map(x => x.url !== undefined ? `<a class="whiteLink" href="${x.url}" target="_blank">${x.name}</a>` : x.name)
 								.join(' &bull; ');
 
-							const jsonGames = gamesWithMissingAchievements.map<RecoverGame>(x => ({ appid: x.sourceGame.appid, unlocked: x.sourceGame.unlocked, total: x.sourceGame.total }));
+							const jsonGames = gamesWithRemovedAchievements.map<RecoverGame>(x => ({ appid: x.sourceGame.appid, unlocked: x.sourceGame.unlocked, total: x.sourceGame.total }));
 
 							html += `
 								<span style="color: #b33b32;">

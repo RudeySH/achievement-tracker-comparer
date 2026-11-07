@@ -56,18 +56,19 @@ export class Steam extends Tracker {
 		total ??= completedAchievementCount;
 
 		if (unlocked === undefined) {
-			unlocked = await this.getAchievementShowcaseCount(appid);
+			if (allGroupsCompleted) {
+				unlocked = completedAchievementCount!;
+			} else {
+				unlocked = await this.getAchievementShowcaseCount(appid);
 
-			if (unlocked === 0 && achievementShowcaseGame === undefined && completionistShowcaseGame === undefined) {
-				return undefined;
-			}
-
-			if (unlocked === 9999) {
-				if (!allGroupsCompleted) {
+				// Games in the showcase lists nearly always have unlocked achievements, so a 0 for them is suspect.
+				if (unlocked === 0 && (achievementShowcaseGame !== undefined || completionistShowcaseGame !== undefined)) {
 					return undefined;
 				}
 
-				unlocked = completedAchievementCount!;
+				if (unlocked === 9999) {
+					return undefined;
+				}
 			}
 		}
 
